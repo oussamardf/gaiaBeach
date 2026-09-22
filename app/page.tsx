@@ -73,6 +73,25 @@ export default function POSPage() {
               -webkit-font-smoothing: none;
               text-rendering: crispEdges;
             }
+            /* ── Neutralise le layout flex/scroll de la caisse ────────────
+               Dans la popup, il n'y a pas de hauteur contrainte :
+               flex-1 + overflow-y-auto écrase les sections suivantes.
+               On force tout en block + visible pour un rendu linéaire. */
+            aside, #ticket-container {
+              display: block !important;
+              height: auto !important;
+              overflow: visible !important;
+              width: 80mm !important;
+            }
+            .flex-1 {
+              flex: none !important;
+              height: auto !important;
+              overflow: visible !important;
+            }
+            .overflow-y-auto {
+              overflow: visible !important;
+              height: auto !important;
+            }
             .no-print, button { display: none !important; }
             * {
               -webkit-print-color-adjust: exact !important;
