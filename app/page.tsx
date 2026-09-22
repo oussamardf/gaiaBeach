@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
-import { useReactToPrint } from "react-to-print";
+import { useEffect, useState, useCallback } from "react";
 import {
   Trash2,
   Plus,
@@ -16,7 +15,6 @@ import {
 import { type Famille, type Article } from "@/lib/supabase";
 import { createClient as createBrowserClient } from "@/lib/supabase/client";
 import { useCartStore } from "@/store/useCartStore";
-import Receipt from "@/components/Receipt";
 
 // ── RLS fix SQL shown to user when tables are empty ──────────────────────────
 const RLS_FIX_SQL = `-- Copiez et exécutez ce SQL dans Supabase → SQL Editor
@@ -40,27 +38,120 @@ export default function POSPage() {
     type: "success" | "error";
     message: string;
   } | null>(null);
-  const [lastOrderId, setLastOrderId] = useState<number | undefined>();
   const [isAdmin, setIsAdmin] = useState(false);
 
   // ── Cart store ────────────────────────────────────────────────────────────
   const { items, addItem, removeItem, updateQuantity, clearCart, getTotal } =
     useCartStore();
 
-  // ── Receipt ref ───────────────────────────────────────────────────────────
-  const receiptRef = useRef<HTMLDivElement>(null);
-  const reactToPrintFn = useReactToPrint({ contentRef: receiptRef });
+  // ── Popup window print ────────────────────────────────────────────────────
+  const handlePrint = () => {
+    const ticketElement = document.getElementById("ticket-container");
+    if (!ticketElement) return;
 
-  // ── Test receipt ref (données fictives pour tester l'imprimante) ──────────
-  const testReceiptRef = useRef<HTMLDivElement>(null);
-  const testPrintFn = useReactToPrint({ contentRef: testReceiptRef });
-  const TEST_ITEMS = [
-    { id: 1, nom: "COCA COLA 33CL",    prix_unitaire: 4.5,  quantite: 2, famille_id: 1, famille_nom: "Boissons" },
-    { id: 2, nom: "EAU MINÉRALE",      prix_unitaire: 2.5,  quantite: 3, famille_id: 1, famille_nom: "Boissons" },
-    { id: 3, nom: "CHIPS NATURE",      prix_unitaire: 3.0,  quantite: 1, famille_id: 2, famille_nom: "Snacks"   },
-    { id: 4, nom: "MOJITO SANS ALCOOL",prix_unitaire: 8.0,  quantite: 2, famille_id: 3, famille_nom: "Cocktails"},
-  ];
-  const TEST_TOTAL = TEST_ITEMS.reduce((s, i) => s + i.prix_unitaire * i.quantite, 0);
+    const printWindow = window.open("", "_blank", "width=400,height=600");
+    if (!printWindow) {
+      alert("Veuillez autoriser les pop-ups pour imprimer le ticket.");
+      return;
+    }
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Ticket de Caisse — GAIA BEACH</title>
+          <style>
+            @page { margin: 0; size: 80mm auto; }
+            body {
+              font-family: monospace;
+              width: 80mm;
+              margin: 0;
+              padding: 10px 15px;
+              color: black;
+              background: white;
+              font-size: 12px;
+            }
+            .no-print, button { display: none !important; }
+            * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .flex { display: flex; }
+            .flex-1 { flex: 1; }
+            .flex-col { flex-direction: column; }
+            .justify-between { justify-content: space-between; }
+            .items-center { align-items: center; }
+            .items-baseline { align-items: baseline; }
+            .text-center { text-align: center; }
+            .text-right { text-align: right; }
+            .font-bold { font-weight: bold; }
+            .font-medium { font-weight: 500; }
+            .uppercase { text-transform: uppercase; }
+            .underline { text-decoration: underline; }
+            .tracking-widest { letter-spacing: 0.15em; }
+            .tracking-wide { letter-spacing: 0.05em; }
+            .font-mono { font-family: monospace; }
+            .bg-black { background-color: black !important; }
+            .bg-gray-800 { background-color: #1f2937 !important; }
+            .bg-gray-100 { background-color: #f3f4f6; }
+            .text-white { color: white !important; }
+            .text-gray-900 { color: #111827; }
+            .text-gray-800 { color: #1f2937; }
+            .text-gray-700 { color: #374151; }
+            .text-gray-600 { color: #4b5563; }
+            .text-gray-500 { color: #6b7280; }
+            .text-gray-400 { color: #9ca3af; }
+            .text-gray-300 { color: #d1d5db; }
+            .border-b { border-bottom: 1px solid #e5e7eb; }
+            .border-t { border-top: 1px solid #e5e7eb; }
+            .border { border: 1px solid #e5e7eb; }
+            .border-gray-100 { border-color: #f3f4f6; }
+            .border-gray-200 { border-color: #e5e7eb; }
+            .border-dashed { border-style: dashed; }
+            .border-dotted { border-style: dotted; }
+            .border-gray-400 { border-color: #9ca3af; }
+            .whitespace-nowrap { white-space: nowrap; }
+            .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .tabular-nums { font-variant-numeric: tabular-nums; }
+            .grid { display: grid; }
+            .grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+            .px-1 { padding-left: 4px; padding-right: 4px; }
+            .px-2 { padding-left: 8px; padding-right: 8px; }
+            .px-3 { padding-left: 12px; padding-right: 12px; }
+            .px-4 { padding-left: 16px; padding-right: 16px; }
+            .py-0\\.5 { padding-top: 2px; padding-bottom: 2px; }
+            .py-1 { padding-top: 4px; padding-bottom: 4px; }
+            .py-1\\.5 { padding-top: 6px; padding-bottom: 6px; }
+            .py-2 { padding-top: 8px; padding-bottom: 8px; }
+            .py-3 { padding-top: 12px; padding-bottom: 12px; }
+            .pt-2 { padding-top: 8px; }
+            .pb-0\\.5 { padding-bottom: 2px; }
+            .pb-1 { padding-bottom: 4px; }
+            .pl-2 { padding-left: 8px; }
+            .mt-0\\.5 { margin-top: 2px; }
+            .mt-1 { margin-top: 4px; }
+            .mb-1\\.5 { margin-bottom: 6px; }
+            .mb-2 { margin-bottom: 8px; }
+            .mb-3 { margin-bottom: 12px; }
+            .gap-1 { gap: 4px; }
+            .gap-2 { gap: 8px; }
+            .w-16 { width: 64px; }
+            .w-20 { width: 80px; }
+            .shrink-0 { flex-shrink: 0; }
+          </style>
+        </head>
+        <body>
+          ${ticketElement.innerHTML}
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 350);
+  };
 
   // ── Toast helper ──────────────────────────────────────────────────────────
   const showToast = useCallback(
@@ -94,11 +185,6 @@ export default function POSPage() {
         supabase.from("familles").select("*").order("ordre_affichage").order("nom"),
         supabase.from("articles").select("*").eq("est_actif", true).order("nom"),
       ]);
-
-      console.group("🏖️ GAIA BEACH — Chargement menu");
-      console.log("familles →", { data: famillesData, error: fe });
-      console.log("articles →", { data: articlesData, error: ae });
-      console.groupEnd();
 
       if (fe || ae) {
         const msg = (fe ?? ae)?.message ?? "Erreur inconnue";
@@ -187,11 +273,8 @@ export default function POSPage() {
 
       if (lignesError) throw new Error(lignesError.message);
 
-      setLastOrderId(commande.id);
-      await new Promise((r) => setTimeout(r, 60));
-      reactToPrintFn();
+      handlePrint();
       clearCart();
-      // commande encaissée avec succès
     } catch (err: unknown) {
       showToast(
         "error",
@@ -200,7 +283,8 @@ export default function POSPage() {
     } finally {
       setCheckoutLoading(false);
     }
-  }, [items, getTotal, clearCart, showToast, reactToPrintFn]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, getTotal, clearCart, showToast]);
 
   // ── Computed totals ───────────────────────────────────────────────────────
   const total = getTotal();
@@ -223,69 +307,12 @@ export default function POSPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-gray-100 font-sans print:block print:h-auto print:overflow-visible print:w-[80mm]">
-      {/* ── Global print styles — isolation par visibilité ───────────────── */}
-      <style>{`
-        @media print {
-          @page {
-            margin: 0;
-            size: 80mm auto;
-          }
-
-          /* 1. Annuler les contraintes de hauteur et de scroll */
-          html, body, main, #__next, .h-screen {
-            height: auto !important;
-            min-height: 100% !important;
-            overflow: visible !important;
-            background: white !important;
-          }
-
-          /* 2. Cacher TOUS les éléments par défaut */
-          body * {
-            visibility: hidden;
-          }
-
-          /* 3. Rendre UNIQUEMENT le ticket et son contenu visibles */
-          #ticket-container, #ticket-container * {
-            visibility: visible;
-          }
-
-          /* 4. Placer le ticket tout en haut à gauche */
-          #ticket-container {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 80mm !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            box-shadow: none !important;
-            border: none !important;
-            color: black !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-
-          /* 5. Masquer les boutons d’action dans le ticket */
-          #ticket-container .no-print,
-          #ticket-container button {
-            display: none !important;
-          }
-        }
-      `}</style>
-      {/* ── Off-screen receipt for printing (must be rendered, NOT display:none) ── */}
-      <div style={{ position: "fixed", left: "-9999px", top: 0, visibility: "hidden" }}>
-        <Receipt ref={receiptRef} items={items} total={total} orderId={lastOrderId} />
-      </div>
-
-      {/* ── Off-screen test receipt (données fictives) ───────────────────── */}
-      <div style={{ position: "fixed", left: "-9999px", top: 0, visibility: "hidden" }}>
-        <Receipt ref={testReceiptRef} items={TEST_ITEMS} total={TEST_TOTAL} orderId={undefined} />
-      </div>
+    <div className="flex h-screen w-screen overflow-hidden bg-gray-100 font-sans">
 
       {/* ════════════════════════════════════════════════════════════════════
-          LEFT PANEL — Menu (flex-1) — masqué à l'impression
+          LEFT PANEL — Menu (flex-1)
       ════════════════════════════════════════════════════════════════════ */}
-      <div className="flex flex-1 flex-col overflow-hidden print:hidden">
+      <div className="flex flex-1 flex-col overflow-hidden">
 
         {/* ── Top bar ────────────────────────────────────────────────────── */}
         <header className="flex items-center justify-between border-b border-gray-200 bg-white px-5 py-3">
@@ -422,7 +449,6 @@ export default function POSPage() {
       <aside
         id="ticket-container"
         className="flex w-[420px] shrink-0 flex-col border-l border-gray-300 bg-white"
-        style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" } as React.CSSProperties}
       >
 
         {/* ── Ticket header ─────────────────────────────────────────────── */}
@@ -445,7 +471,7 @@ export default function POSPage() {
         </div>
 
         {/* ── Scrollable ticket body ─────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto font-mono text-xs print:overflow-visible print:flex-none">
+        <div className="flex-1 overflow-y-auto font-mono text-xs">
           {items.length === 0 ? (
             <div className="flex h-full items-center justify-center text-gray-300">
               <p className="text-[10px]">— ticket vide —</p>
@@ -590,11 +616,11 @@ export default function POSPage() {
           </div>
         )}
 
-        {/* ── Action buttons — masqués à l'impression ─────────────────── */}
+        {/* ── Action buttons ────────────────────────────────────────────── */}
         <div className="no-print flex flex-col gap-2 border-t border-gray-200 bg-white p-3">
           {/* Test print button */}
           <button
-            onClick={() => testPrintFn()}
+            onClick={handlePrint}
             className="flex w-full cursor-pointer items-center justify-center gap-2 border border-dashed border-gray-300 py-2 text-xs font-medium text-gray-400 transition-colors hover:border-gray-400 hover:text-gray-600"
           >
             <Printer size={13} />
@@ -602,36 +628,35 @@ export default function POSPage() {
           </button>
 
           <div className="flex gap-2">
+            {/* Red cancel button */}
+            <button
+              onClick={clearCart}
+              disabled={items.length === 0}
+              title="Annuler / Vider le ticket"
+              className="flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center border border-red-200 bg-red-50 text-red-500 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              <Trash2 size={18} />
+            </button>
 
-          {/* Red cancel button */}
-          <button
-            onClick={clearCart}
-            disabled={items.length === 0}
-            title="Annuler / Vider le ticket"
-            className="flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center border border-red-200 bg-red-50 text-red-500 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-30"
-          >
-            <Trash2 size={18} />
-          </button>
-
-          {/* Black checkout button */}
-          <button
-            onClick={handleCheckout}
-            disabled={items.length === 0 || checkoutLoading}
-            className="flex flex-1 cursor-pointer items-center justify-center gap-2 bg-gray-900 py-3 text-sm font-bold uppercase tracking-wider text-white transition-colors hover:bg-gray-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {checkoutLoading ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                Encaissement…
-              </>
-            ) : (
-              <>
-                <Printer size={16} />
-                Encaisser &amp; Imprimer
-              </>
-            )}
-          </button>
-          </div>{/* end flex gap-2 */}
+            {/* Black checkout button */}
+            <button
+              onClick={handleCheckout}
+              disabled={items.length === 0 || checkoutLoading}
+              className="flex flex-1 cursor-pointer items-center justify-center gap-2 bg-gray-900 py-3 text-sm font-bold uppercase tracking-wider text-white transition-colors hover:bg-gray-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {checkoutLoading ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Encaissement…
+                </>
+              ) : (
+                <>
+                  <Printer size={16} />
+                  Encaisser &amp; Imprimer
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </aside>
 
