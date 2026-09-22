@@ -78,6 +78,24 @@ export default function POSPage() {
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
             }
+            /* Forcer TOUT le texte en noir pur */
+            body * {
+              color: #000000 !important;
+              opacity: 1 !important;
+            }
+            /* Exception : texte blanc sur fonds noirs (totaux) */
+            .bg-black *, .bg-gray-800 * {
+              color: #ffffff !important;
+            }
+            .bg-black, .bg-gray-800 {
+              background-color: #000000 !important;
+            }
+            /* Forcer les classes gris Tailwind en noir */
+            .text-gray-300, .text-gray-400, .text-gray-500,
+            .text-gray-600, .text-gray-700, .text-gray-800,
+            .text-gray-900 {
+              color: #000000 !important;
+            }
             .font-bold { font-weight: 900 !important; }
             .tracking-widest { letter-spacing: 0.15em; font-weight: 900 !important; }
             .flex { display: flex; }
