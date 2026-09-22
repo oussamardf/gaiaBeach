@@ -73,6 +73,11 @@ const Receipt = React.forwardRef<HTMLDivElement, ReceiptProps>(
         <style>{`
           @page { size: 80mm auto; margin: 0; }
           body { width: 80mm; margin: 0; padding: 0; }
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+          }
         `}</style>
         {/* ══ EN-TÊTE ══════════════════════════════════════════════════════ */}
         <div style={{ textAlign: "center", marginBottom: "6px" }}>
