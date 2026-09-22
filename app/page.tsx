@@ -62,19 +62,24 @@ export default function POSPage() {
           <style>
             @page { margin: 0; size: 80mm auto; }
             body {
-              font-family: monospace;
+              font-family: 'Courier New', Courier, monospace;
               width: 80mm;
               margin: 0;
               padding: 10px 15px;
               color: black;
               background: white;
-              font-size: 12px;
+              font-size: 13px;
+              font-weight: 700;
+              -webkit-font-smoothing: none;
+              text-rendering: crispEdges;
             }
             .no-print, button { display: none !important; }
             * {
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
             }
+            .font-bold { font-weight: 900 !important; }
+            .tracking-widest { letter-spacing: 0.15em; font-weight: 900 !important; }
             .flex { display: flex; }
             .flex-1 { flex: 1; }
             .flex-col { flex-direction: column; }
