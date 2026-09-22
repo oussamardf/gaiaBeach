@@ -78,24 +78,28 @@ export default function POSPage() {
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
             }
-            /* Forcer TOUT le texte en noir pur */
-            body * {
+            /* 1. Cibler uniquement les gris clairs → noir */
+            .text-gray-300, .text-gray-400, .text-gray-500, .text-gray-600 {
               color: #000000 !important;
               opacity: 1 !important;
             }
-            /* Exception : texte blanc sur fonds noirs (totaux) */
-            .bg-black *, .bg-gray-800 * {
+            /* 2. Protéger STRICTEMENT le texte blanc sur fonds noirs */
+            .bg-black {
+              background-color: #000000 !important;
+              color: #ffffff !important;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .bg-black *, .text-white {
               color: #ffffff !important;
             }
-            .bg-black, .bg-gray-800 {
-              background-color: #000000 !important;
+            .bg-gray-800 {
+              background-color: #1f2937 !important;
             }
-            /* Forcer les classes gris Tailwind en noir */
-            .text-gray-300, .text-gray-400, .text-gray-500,
-            .text-gray-600, .text-gray-700, .text-gray-800,
-            .text-gray-900 {
-              color: #000000 !important;
+            .bg-gray-800 * {
+              color: #ffffff !important;
             }
+            /* 3. Titres extra-bold */
             .font-bold { font-weight: 900 !important; }
             .tracking-widest { letter-spacing: 0.15em; font-weight: 900 !important; }
             .flex { display: flex; }
