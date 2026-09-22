@@ -241,13 +241,13 @@ export default function POSPage() {
           }
         }
       `}</style>
-      {/* ── Hidden receipt for printing ───────────────────────────────────── */}
-      <div className="hidden">
+      {/* ── Off-screen receipt for printing (must be rendered, NOT display:none) ── */}
+      <div style={{ position: "fixed", left: "-9999px", top: 0, visibility: "hidden" }}>
         <Receipt ref={receiptRef} items={items} total={total} orderId={lastOrderId} />
       </div>
 
-      {/* ── Hidden test receipt (données fictives) ────────────────────────── */}
-      <div className="hidden">
+      {/* ── Off-screen test receipt (données fictives) ───────────────────── */}
+      <div style={{ position: "fixed", left: "-9999px", top: 0, visibility: "hidden" }}>
         <Receipt ref={testReceiptRef} items={TEST_ITEMS} total={TEST_TOTAL} orderId={undefined} />
       </div>
 
