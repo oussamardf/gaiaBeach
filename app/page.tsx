@@ -60,54 +60,60 @@ export default function POSPage() {
         <head>
           <title>Ticket de Caisse — GAIA BEACH</title>
           <style>
-            @page { margin: 0; size: 80mm auto; }
+            @page {
+              margin: 0;
+              size: 80mm auto;
+            }
+
             body {
               font-family: 'Courier New', Courier, monospace;
               width: 80mm;
               margin: 0;
-              padding: 10px 15px;
-              color: black;
+              padding: 10px 15px 30px 15px;
               background: white;
               font-size: 13px;
               font-weight: 700;
               -webkit-font-smoothing: none;
               text-rendering: crispEdges;
+              color: black;
             }
-            /* ── Neutralise le layout flex/scroll de la caisse ────────────
-               Dans la popup, il n'y a pas de hauteur contrainte :
-               flex-1 + overflow-y-auto écrase les sections suivantes.
-               On force tout en block + visible pour un rendu linéaire. */
-            aside, #ticket-container {
-              display: block !important;
-              height: auto !important;
-              overflow: visible !important;
-              width: 80mm !important;
-            }
-            .flex-1 {
-              flex: none !important;
-              height: auto !important;
-              overflow: visible !important;
-            }
-            .overflow-y-auto {
-              overflow: visible !important;
-              height: auto !important;
-            }
-            .no-print, button { display: none !important; }
+
+            /* 1. RESET COMPLET DU LAYOUT */
             * {
+              box-sizing: border-box;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
             }
-            /* 1. Cibler uniquement les gris clairs → noir */
+            html, body, div, main, section, aside {
+              height: auto !important;
+              min-height: 0 !important;
+              max-height: none !important;
+              overflow: visible !important;
+              position: static !important;
+              display: block !important;
+            }
+
+            /* Exceptions flex pour l'alignement horizontal */
+            .flex { display: flex !important; }
+            .flex-1 { flex: 1 !important; }
+            .flex-col { flex-direction: column !important; }
+            .justify-between { justify-content: space-between !important; }
+            .items-center { align-items: center !important; }
+            .items-baseline { align-items: baseline !important; }
+            .grid { display: grid !important; }
+            .grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+            .shrink-0 { flex-shrink: 0 !important; }
+
+            /* 2. COULEURS : gris → noir pur */
             .text-gray-300, .text-gray-400, .text-gray-500, .text-gray-600 {
               color: #000000 !important;
               opacity: 1 !important;
             }
-            /* 2. Protéger STRICTEMENT le texte blanc sur fonds noirs */
+
+            /* Protection des blocs totaux inversés (noir/blanc) */
             .bg-black {
               background-color: #000000 !important;
               color: #ffffff !important;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
             }
             .bg-black *, .text-white {
               color: #ffffff !important;
@@ -118,48 +124,33 @@ export default function POSPage() {
             .bg-gray-800 * {
               color: #ffffff !important;
             }
-            /* 3. Titres extra-bold */
-            .font-bold { font-weight: 900 !important; }
+            .bg-gray-100 { background-color: #f3f4f6 !important; }
+
+            /* 3. TYPOGRAPHIE */
+            .font-bold, .font-semibold { font-weight: 900 !important; }
+            .font-medium { font-weight: 600 !important; }
             .tracking-widest { letter-spacing: 0.15em; font-weight: 900 !important; }
-            .flex { display: flex; }
-            .flex-1 { flex: 1; }
-            .flex-col { flex-direction: column; }
-            .justify-between { justify-content: space-between; }
-            .items-center { align-items: center; }
-            .items-baseline { align-items: baseline; }
-            .text-center { text-align: center; }
-            .text-right { text-align: right; }
-            .font-bold { font-weight: bold; }
-            .font-medium { font-weight: 500; }
+            .tracking-wide { letter-spacing: 0.05em; }
             .uppercase { text-transform: uppercase; }
             .underline { text-decoration: underline; }
-            .tracking-widest { letter-spacing: 0.15em; }
-            .tracking-wide { letter-spacing: 0.05em; }
-            .font-mono { font-family: monospace; }
-            .bg-black { background-color: black !important; }
-            .bg-gray-800 { background-color: #1f2937 !important; }
-            .bg-gray-100 { background-color: #f3f4f6; }
-            .text-white { color: white !important; }
-            .text-gray-900 { color: #111827; }
-            .text-gray-800 { color: #1f2937; }
-            .text-gray-700 { color: #374151; }
-            .text-gray-600 { color: #4b5563; }
-            .text-gray-500 { color: #6b7280; }
-            .text-gray-400 { color: #9ca3af; }
-            .text-gray-300 { color: #d1d5db; }
-            .border-b { border-bottom: 1px solid #e5e7eb; }
-            .border-t { border-top: 1px solid #e5e7eb; }
-            .border { border: 1px solid #e5e7eb; }
-            .border-gray-100 { border-color: #f3f4f6; }
-            .border-gray-200 { border-color: #e5e7eb; }
-            .border-dashed { border-style: dashed; }
-            .border-dotted { border-style: dotted; }
-            .border-gray-400 { border-color: #9ca3af; }
+            .font-mono { font-family: 'Courier New', Courier, monospace; }
+            .tabular-nums { font-variant-numeric: tabular-nums; }
+            .text-center { text-align: center; }
+            .text-right { text-align: right; }
             .whitespace-nowrap { white-space: nowrap; }
             .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-            .tabular-nums { font-variant-numeric: tabular-nums; }
-            .grid { display: grid; }
-            .grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+            /* 4. BORDURES */
+            .border-b { border-bottom: 1px solid #000; }
+            .border-t { border-top: 1px solid #000; }
+            .border { border: 1px solid #000; }
+            .border-dashed { border-style: dashed !important; }
+            .border-dotted { border-style: dotted !important; }
+            .border-gray-400 { border-color: #000 !important; }
+            .border-gray-200 { border-color: #000 !important; }
+            .border-gray-100 { border-color: #ccc !important; }
+
+            /* 5. ESPACEMENTS */
             .px-1 { padding-left: 4px; padding-right: 4px; }
             .px-2 { padding-left: 8px; padding-right: 8px; }
             .px-3 { padding-left: 12px; padding-right: 12px; }
@@ -182,8 +173,11 @@ export default function POSPage() {
             .gap-2 { gap: 8px; }
             .w-16 { width: 64px; }
             .w-20 { width: 80px; }
-            .shrink-0 { flex-shrink: 0; }
+
+            /* 6. MASQUER L'INTERFACE */
+            button, .no-print, svg { display: none !important; }
           </style>
+
         </head>
         <body>
           ${ticketElement.innerHTML}
