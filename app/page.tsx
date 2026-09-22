@@ -180,7 +180,7 @@ export default function POSPage() {
       await new Promise((r) => setTimeout(r, 60));
       reactToPrintFn();
       clearCart();
-      showToast("success", `Commande #${commande.id} encaissée !`);
+      // commande encaissée avec succès
     } catch (err: unknown) {
       showToast(
         "error",
@@ -212,7 +212,7 @@ export default function POSPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-gray-100 font-sans print:overflow-visible">
+    <div className="flex h-screen w-screen overflow-hidden bg-gray-100 font-sans print:block print:h-auto print:overflow-visible print:w-[80mm]">
       {/* ── Global print styles: 80mm thermal paper ─────────────────────── */}
       <style>{`
         @media print {
@@ -373,7 +373,7 @@ export default function POSPage() {
           RIGHT PANEL — Ticket / Rapport Z de caisse
       ════════════════════════════════════════════════════════════════════ */}
       <aside
-        className="flex w-[420px] shrink-0 flex-col border-l border-gray-300 bg-white print:w-full print:absolute print:top-0 print:left-0 print:m-0 print:shadow-none print:border-none"
+        className="flex w-[420px] shrink-0 flex-col border-l border-gray-300 bg-white print:block print:w-full print:m-0 print:shadow-none print:border-none print:overflow-visible"
         style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" } as React.CSSProperties}
       >
 
@@ -397,7 +397,7 @@ export default function POSPage() {
         </div>
 
         {/* ── Scrollable ticket body ─────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto font-mono text-xs">
+        <div className="flex-1 overflow-y-auto font-mono text-xs print:overflow-visible print:flex-none">
           {items.length === 0 ? (
             <div className="flex h-full items-center justify-center text-gray-300">
               <p className="text-[10px]">— ticket vide —</p>
