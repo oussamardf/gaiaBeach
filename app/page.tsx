@@ -224,19 +224,50 @@ export default function POSPage() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-gray-100 font-sans print:block print:h-auto print:overflow-visible print:w-[80mm]">
-      {/* ── Global print styles: 80mm thermal paper ─────────────────────── */}
+      {/* ── Global print styles — isolation par visibilité ───────────────── */}
       <style>{`
         @media print {
           @page {
             margin: 0;
             size: 80mm auto;
           }
-          body {
-            width: 80mm;
-            margin: 0;
-            padding: 0;
+
+          /* 1. Annuler les contraintes de hauteur et de scroll */
+          html, body, main, #__next, .h-screen {
+            height: auto !important;
+            min-height: 100% !important;
+            overflow: visible !important;
+            background: white !important;
           }
-          .no-print {
+
+          /* 2. Cacher TOUS les éléments par défaut */
+          body * {
+            visibility: hidden;
+          }
+
+          /* 3. Rendre UNIQUEMENT le ticket et son contenu visibles */
+          #ticket-container, #ticket-container * {
+            visibility: visible;
+          }
+
+          /* 4. Placer le ticket tout en haut à gauche */
+          #ticket-container {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 80mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            color: black !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          /* 5. Masquer les boutons d’action dans le ticket */
+          #ticket-container .no-print,
+          #ticket-container button {
             display: none !important;
           }
         }
@@ -389,7 +420,8 @@ export default function POSPage() {
           RIGHT PANEL — Ticket / Rapport Z de caisse
       ════════════════════════════════════════════════════════════════════ */}
       <aside
-        className="flex w-[420px] shrink-0 flex-col border-l border-gray-300 bg-white print:block print:w-full print:m-0 print:shadow-none print:border-none print:overflow-visible"
+        id="ticket-container"
+        className="flex w-[420px] shrink-0 flex-col border-l border-gray-300 bg-white"
         style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" } as React.CSSProperties}
       >
 
