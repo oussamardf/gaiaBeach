@@ -51,6 +51,17 @@ export default function POSPage() {
   const receiptRef = useRef<HTMLDivElement>(null);
   const reactToPrintFn = useReactToPrint({ contentRef: receiptRef });
 
+  // ── Test receipt ref (données fictives pour tester l'imprimante) ──────────
+  const testReceiptRef = useRef<HTMLDivElement>(null);
+  const testPrintFn = useReactToPrint({ contentRef: testReceiptRef });
+  const TEST_ITEMS = [
+    { id: 1, nom: "COCA COLA 33CL",    prix_unitaire: 4.5,  quantite: 2, famille_id: 1, famille_nom: "Boissons" },
+    { id: 2, nom: "EAU MINÉRALE",      prix_unitaire: 2.5,  quantite: 3, famille_id: 1, famille_nom: "Boissons" },
+    { id: 3, nom: "CHIPS NATURE",      prix_unitaire: 3.0,  quantite: 1, famille_id: 2, famille_nom: "Snacks"   },
+    { id: 4, nom: "MOJITO SANS ALCOOL",prix_unitaire: 8.0,  quantite: 2, famille_id: 3, famille_nom: "Cocktails"},
+  ];
+  const TEST_TOTAL = TEST_ITEMS.reduce((s, i) => s + i.prix_unitaire * i.quantite, 0);
+
   // ── Toast helper ──────────────────────────────────────────────────────────
   const showToast = useCallback(
     (type: "success" | "error", message: string) => {
@@ -233,6 +244,11 @@ export default function POSPage() {
       {/* ── Hidden receipt for printing ───────────────────────────────────── */}
       <div className="hidden">
         <Receipt ref={receiptRef} items={items} total={total} orderId={lastOrderId} />
+      </div>
+
+      {/* ── Hidden test receipt (données fictives) ────────────────────────── */}
+      <div className="hidden">
+        <Receipt ref={testReceiptRef} items={TEST_ITEMS} total={TEST_TOTAL} orderId={undefined} />
       </div>
 
       {/* ════════════════════════════════════════════════════════════════════
@@ -543,7 +559,18 @@ export default function POSPage() {
         )}
 
         {/* ── Action buttons — masqués à l'impression ─────────────────── */}
-        <div className="no-print flex gap-2 border-t border-gray-200 bg-white p-3">
+        <div className="no-print flex flex-col gap-2 border-t border-gray-200 bg-white p-3">
+          {/* Test print button */}
+          <button
+            onClick={() => testPrintFn()}
+            className="flex w-full cursor-pointer items-center justify-center gap-2 border border-dashed border-gray-300 py-2 text-xs font-medium text-gray-400 transition-colors hover:border-gray-400 hover:text-gray-600"
+          >
+            <Printer size={13} />
+            Imprimer un exemple (test imprimante)
+          </button>
+
+          <div className="flex gap-2">
+
           {/* Red cancel button */}
           <button
             onClick={clearCart}
@@ -572,6 +599,7 @@ export default function POSPage() {
               </>
             )}
           </button>
+          </div>{/* end flex gap-2 */}
         </div>
       </aside>
 
