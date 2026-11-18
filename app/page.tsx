@@ -246,6 +246,9 @@ export default function POSPage() {
           <div className="flex items-center gap-4">
             <span className="text-xs text-gray-400">{dateStr} — {timeStr}</span>
             <div className="h-4 w-px bg-gray-300"></div>
+            <a href="/bilan" className="text-xs text-gray-500 hover:text-gray-900 transition-colors">
+              Bilan total
+            </a>
             {isAdmin && (
               <a href="/admin/menu" className="text-xs text-gray-500 hover:text-gray-900 transition-colors">
                 Admin
