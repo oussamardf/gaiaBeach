@@ -28,6 +28,25 @@ body {
   display: none;
 }
 
+/* ── Thermal ticket (Pointex) ───────────────────────────────────────────── */
+.ticket-body {
+  font-family: Courier, "Courier New", monospace;
+  -webkit-font-smoothing: none;
+  text-rendering: optimizeSpeed;
+  color: #000;
+}
+
+.ticket-invert {
+  background-color: #000 !important;
+  color: #fff !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.ticket-invert * {
+  color: #fff !important;
+}
+
 /* ── Print styles ───────────────────────────────────────────────────────── */
 @media print {
   body > *:not(.print-only) {

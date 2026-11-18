@@ -23,6 +23,71 @@ ALTER TABLE articles DISABLE ROW LEVEL SECURITY;
 ALTER TABLE commandes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE lignes_commande DISABLE ROW LEVEL SECURITY;`;
 
+/** Format monétaire Pointex : 2 décimales, virgule FR */
+const fmt = (n: number) => n.toFixed(2).replace(".", ",");
+
+/** Points de remplissage (vrais caractères `.`, pas une bordure CSS) */
+const DOTS = ".".repeat(120);
+
+/** Colonnes numériques : qté 6ch + prix 10ch — inversion noire Pointex */
+function TicketNums({ qty, price }: { qty: string; price: string }) {
+  return (
+    <span className="ticket-invert inline-flex shrink-0 bg-black text-white">
+      <span className="inline-block w-[6ch] text-right tabular-nums">{qty}</span>
+      <span className="inline-block w-[10ch] text-right tabular-nums">{price}</span>
+    </span>
+  );
+}
+
+/** Ligne de sous-total : libellé + ..... + bloc noir (qté/prix uniquement) */
+function SummaryLine({
+  label,
+  qty,
+  price,
+  indent = 0,
+}: {
+  label: string;
+  qty: string;
+  price: string;
+  /** 0 = niveau catégorie (Net BEVERAGE), 1 = sous-catégorie (Net Ventes / dont …) */
+  indent?: 0 | 1;
+}) {
+  return (
+    <div
+      className={`flex items-baseline leading-none ${indent === 1 ? "pl-[1ch]" : ""}`}
+    >
+      <span className="shrink-0 whitespace-nowrap">{label}</span>
+      <span className="min-w-[2ch] flex-1 overflow-hidden whitespace-nowrap">
+        {DOTS}
+      </span>
+      <TicketNums qty={qty} price={price} />
+    </div>
+  );
+}
+
+/** Ligne article : double indent + qté/prix alignés sur la grille SummaryLine */
+function ItemLine({
+  name,
+  qty,
+  price,
+}: {
+  name: string;
+  qty: string;
+  price: string;
+}) {
+  return (
+    <div className="flex items-baseline leading-none pl-[3ch]">
+      <span className="min-w-0 flex-1 truncate uppercase pr-1">{name}</span>
+      <span className="inline-block w-[6ch] shrink-0 text-right tabular-nums">
+        {qty}
+      </span>
+      <span className="inline-block w-[10ch] shrink-0 text-right tabular-nums">
+        {price}
+      </span>
+    </div>
+  );
+}
+
 export default function POSPage() {
   const supabase = createBrowserClient();
 
@@ -58,126 +123,130 @@ export default function POSPage() {
     printWindow.document.write(`
       <html>
         <head>
-          <title>Ticket de Caisse — GAIA BEACH</title>
+          <title>Ticket de Caisse — LA GAZELLE DE BABYLONE</title>
           <style>
-            @page {
+            @page { margin: 0; size: 80mm auto; }
+
+            html, body {
               margin: 0;
-              size: 80mm auto;
+              padding: 0;
+              background: #fff;
             }
 
             body {
-              font-family: 'Courier New', Courier, monospace;
+              font-family: Courier, 'Courier New', monospace;
               width: 80mm;
-              margin: 0;
-              padding: 10px 15px 30px 15px;
-              background: white;
-              font-size: 13px;
-              font-weight: 700;
+              padding: 2mm 2.5mm 8mm 2.5mm;
+              font-size: 11px;
+              font-weight: bold;
+              line-height: 1.1;
+              color: #000;
               -webkit-font-smoothing: none;
+              -moz-osx-font-smoothing: unset;
               text-rendering: crispEdges;
-              color: black;
             }
 
-            /* 1. RESET COMPLET DU LAYOUT */
             * {
               box-sizing: border-box;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
+              color-adjust: exact !important;
             }
-            html, body, div, main, section, aside {
+
+            html, body, div, main, section, aside, p {
               height: auto !important;
               min-height: 0 !important;
               max-height: none !important;
               overflow: visible !important;
               position: static !important;
-              display: block !important;
             }
 
-            /* Exceptions flex pour l'alignement horizontal */
             .flex { display: flex !important; }
-            .flex-1 { flex: 1 !important; }
+            .inline-flex { display: inline-flex !important; }
+            .inline-block { display: inline-block !important; }
+            .flex-1 { flex: 1 1 0% !important; min-width: 0 !important; }
             .flex-col { flex-direction: column !important; }
-            .justify-between { justify-content: space-between !important; }
-            .items-center { align-items: center !important; }
             .items-baseline { align-items: baseline !important; }
+            .items-center { align-items: center !important; }
+            .justify-between { justify-content: space-between !important; }
+            .shrink-0 { flex-shrink: 0 !important; }
+            .min-w-0 { min-width: 0 !important; }
+            .overflow-hidden { overflow: hidden !important; max-height: none !important; }
             .grid { display: grid !important; }
             .grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
-            .shrink-0 { flex-shrink: 0 !important; }
 
-            /* 2. COULEURS : gris → noir pur */
-            .text-gray-300, .text-gray-400, .text-gray-500, .text-gray-600 {
-              color: #000000 !important;
-              opacity: 1 !important;
+            /* Inversion Pointex : fond noir UNIQUEMENT sur qté + prix */
+            .bg-black,
+            .ticket-invert {
+              background-color: #000 !important;
+              color: #fff !important;
+              print-color-adjust: exact !important;
+              -webkit-print-color-adjust: exact !important;
+            }
+            .bg-black *,
+            .ticket-invert *,
+            .text-white {
+              color: #fff !important;
             }
 
-            /* Protection des blocs totaux inversés (noir/blanc) */
-            .bg-black {
-              background-color: #000000 !important;
-              color: #ffffff !important;
+            .text-black, .text-gray-300, .text-gray-400, .text-gray-500,
+            .text-gray-600, .text-gray-700, .text-gray-800, .text-gray-900 {
+              color: #000 !important;
             }
-            .bg-black *, .text-white {
-              color: #ffffff !important;
-            }
-            .bg-gray-800 {
-              background-color: #1f2937 !important;
-            }
-            .bg-gray-800 * {
-              color: #ffffff !important;
-            }
-            .bg-gray-100 { background-color: #f3f4f6 !important; }
 
-            /* 3. TYPOGRAPHIE */
-            .font-bold, .font-semibold { font-weight: 900 !important; }
-            .font-medium { font-weight: 600 !important; }
-            .tracking-widest { letter-spacing: 0.15em; font-weight: 900 !important; }
-            .tracking-wide { letter-spacing: 0.05em; }
+            .font-bold, .font-semibold, .font-medium { font-weight: bold !important; }
+            .font-normal { font-weight: normal !important; }
+            .font-mono { font-family: Courier, 'Courier New', monospace !important; }
             .uppercase { text-transform: uppercase; }
-            .underline { text-decoration: underline; }
-            .font-mono { font-family: 'Courier New', Courier, monospace; }
+            .underline { text-decoration: underline; text-underline-offset: 2px; }
+            .underline-offset-2 { text-underline-offset: 2px; }
+            .text-\\[13px\\] { font-size: 13px !important; }
+            .text-\\[11px\\] { font-size: 11px !important; }
+            .text-\\[9px\\] { font-size: 9px !important; }
+            .tracking-widest { letter-spacing: 0.1em; }
+            .tracking-wide { letter-spacing: 0.03em; }
             .tabular-nums { font-variant-numeric: tabular-nums; }
             .text-center { text-align: center; }
             .text-right { text-align: right; }
-            .whitespace-nowrap { white-space: nowrap; }
-            .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .whitespace-nowrap { white-space: nowrap !important; }
+            .truncate {
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              white-space: nowrap !important;
+            }
+            .leading-none { line-height: 1.1 !important; }
+            .leading-tight { line-height: 1.15 !important; }
 
-            /* 4. BORDURES */
-            .border-b { border-bottom: 1px solid #000; }
-            .border-t { border-top: 1px solid #000; }
             .border { border: 1px solid #000; }
-            .border-dashed { border-style: dashed !important; }
-            .border-dotted { border-style: dotted !important; }
-            .border-gray-400 { border-color: #000 !important; }
-            .border-gray-200 { border-color: #000 !important; }
-            .border-gray-100 { border-color: #ccc !important; }
+            .border-black { border-color: #000 !important; }
+            .border-t { border-top: 1px solid #000; }
 
-            /* 5. ESPACEMENTS */
-            .px-1 { padding-left: 4px; padding-right: 4px; }
-            .px-2 { padding-left: 8px; padding-right: 8px; }
-            .px-3 { padding-left: 12px; padding-right: 12px; }
-            .px-4 { padding-left: 16px; padding-right: 16px; }
-            .py-0\\.5 { padding-top: 2px; padding-bottom: 2px; }
-            .py-1 { padding-top: 4px; padding-bottom: 4px; }
-            .py-1\\.5 { padding-top: 6px; padding-bottom: 6px; }
-            .py-2 { padding-top: 8px; padding-bottom: 8px; }
-            .py-3 { padding-top: 12px; padding-bottom: 12px; }
-            .pt-2 { padding-top: 8px; }
-            .pb-0\\.5 { padding-bottom: 2px; }
-            .pb-1 { padding-bottom: 4px; }
-            .pl-2 { padding-left: 8px; }
-            .mt-0\\.5 { margin-top: 2px; }
-            .mt-1 { margin-top: 4px; }
-            .mb-1\\.5 { margin-bottom: 6px; }
-            .mb-2 { margin-bottom: 8px; }
-            .mb-3 { margin-bottom: 12px; }
-            .gap-1 { gap: 4px; }
-            .gap-2 { gap: 8px; }
-            .w-16 { width: 64px; }
-            .w-20 { width: 80px; }
+            .w-\\[6ch\\] { width: 6ch !important; }
+            .w-\\[10ch\\] { width: 10ch !important; }
+            .min-w-\\[2ch\\] { min-width: 2ch !important; }
+            .pl-\\[1ch\\] { padding-left: 1ch !important; }
+            .pl-\\[2ch\\] { padding-left: 2ch !important; }
+            .pl-\\[3ch\\] { padding-left: 3ch !important; }
+            .pr-1 { padding-right: 0.25em; }
+            .px-1 { padding-left: 0.25em; padding-right: 0.25em; }
+            .px-2 { padding-left: 0.4em; padding-right: 0.4em; }
+            .py-0\\.5 { padding-top: 0; padding-bottom: 0; }
+            .pt-1 { padding-top: 0.35em; }
+            .pt-2 { padding-top: 0.5em; }
+            .pb-0\\.5 { padding-bottom: 0.1em; }
+            .pb-1 { padding-bottom: 0.25em; }
+            .pb-2 { padding-bottom: 0.4em; }
+            .mt-0\\.5 { margin-top: 0.15em; }
+            .mt-1 { margin-top: 0.35em; }
+            .mt-2 { margin-top: 0.5em; }
+            .mt-\\[0\\.75em\\] { margin-top: 0.75em !important; }
+            .mb-0 { margin-bottom: 0; }
+            .mb-0\\.5 { margin-bottom: 0.15em; }
+            .mb-1 { margin-bottom: 0.25em; }
+            .mb-2 { margin-bottom: 0.45em; }
 
-            /* 6. MASQUER L'INTERFACE */
             button, .no-print, svg { display: none !important; }
           </style>
-
         </head>
         <body>
           ${ticketElement.innerHTML}
@@ -488,177 +557,153 @@ export default function POSPage() {
       ════════════════════════════════════════════════════════════════════ */}
       <aside
         id="ticket-container"
-        className="flex w-[420px] shrink-0 flex-col border-l border-gray-300 bg-white"
+        className="flex w-[420px] shrink-0 flex-col border-l border-gray-300 bg-white text-black"
+        style={{
+          fontFamily: "Courier, 'Courier New', monospace",
+          WebkitFontSmoothing: "none",
+          textRendering: "optimizeSpeed",
+        }}
       >
+        {/* ═══ Zone ticket thermique (80mm) ═══════════════════════════════ */}
+        <div className="ticket-body flex-1 overflow-y-auto px-2.5 pt-3 pb-2 text-[11px] font-bold leading-none text-black">
 
-        {/* ── Ticket header ─────────────────────────────────────────────── */}
-        <div className="border-b border-dashed border-gray-400 px-4 py-3 font-mono text-center">
-          <p className="text-xs font-bold tracking-widest text-gray-900 uppercase">GAIA BEACH</p>
-          <p className="text-[10px] text-gray-500 mt-0.5">Rapport Z — Bilan Total</p>
-          <p className="text-[10px] text-gray-400 mt-0.5">{dateStr} — {timeStr}</p>
-        </div>
-
-        {/* ── Title + column headers ─────────────────────────────────────── */}
-        <div className="border-b border-dashed border-gray-400 px-3 py-1.5 font-mono">
-          <p className="text-center text-[11px] font-bold uppercase tracking-widest text-gray-800 mb-1.5">
-            ARTICLE VENDU
-          </p>
-          <div className="flex items-center">
-            <span className="flex-1 text-[9px] font-bold uppercase text-gray-400">Désignation</span>
-            <span className="w-16 text-center text-[9px] font-bold uppercase text-gray-400">Qté</span>
-            <span className="w-20 text-right text-[9px] font-bold uppercase text-gray-400">Montant</span>
+          {/* En-tête Pointex (photo claire) :
+              enseigne centrée + soulignée + un peu plus grande
+              date centrée
+              ARTICLE VENDUS centré, non souligné */}
+          <div className="mb-2 text-center leading-none">
+            <p className="text-[13px] uppercase underline underline-offset-2">
+              LA GAZELLE DE BABYLONE
+            </p>
+            <p className="mt-0.5">Calculer la caisse du {dateStr}</p>
+            <p className="mt-[0.75em] uppercase">ARTICLE VENDUS</p>
           </div>
-        </div>
 
-        {/* ── Scrollable ticket body ─────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto font-mono text-xs">
           {items.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-gray-300">
-              <p className="text-[10px]">— ticket vide —</p>
+            <div className="flex h-40 items-center justify-center">
+              <p className="text-[10px] font-normal text-gray-400">— ticket vide —</p>
             </div>
           ) : (
-            <div>
+            <>
               {Object.entries(cartByFamille).map(([familleName, famItems]) => {
-                const famQty  = famItems.reduce((s, i) => s + i.quantite, 0);
-                const famTotal = famItems.reduce((s, i) => s + i.prix_unitaire * i.quantite, 0);
-                const fmt = (n: number) => n.toFixed(2).replace(".", ",");
+                const famQty = famItems.reduce((s, i) => s + i.quantite, 0);
+                const famTotal = famItems.reduce(
+                  (s, i) => s + i.prix_unitaire * i.quantite,
+                  0
+                );
+                const cat = familleName.toUpperCase();
+                const q = fmt(famQty);
+                const p = fmt(famTotal);
+
                 return (
-                  <div key={familleName}>
-
-                    {/* ── Famille name — souligné */}
-                    <div className="px-3 pt-2 pb-0.5">
-                      <span className="text-[11px] font-bold uppercase underline underline-offset-2 text-gray-900 tracking-wide">
-                        {familleName}
-                      </span>
+                  <div key={familleName} className="mb-1">
+                    {/* Catégorie — majuscules + souligné, flush left */}
+                    <div className="pt-1">
+                      <span className="uppercase underline">{cat}</span>
                     </div>
-                    <div className="px-3 pb-1 text-[10px] text-gray-500">Ventes</div>
 
-                    {/* ── Articles */}
+                    {/* Sous-catégorie — indentée + soulignée */}
+                    <div className="pl-[1ch]">
+                      <span className="underline">Ventes</span>
+                    </div>
+
+                    {/* Articles — double indent */}
                     {famItems.map((item) => (
-                      <div key={item.id} className="border-b border-gray-100 px-3 py-1">
-                        <div className="flex items-baseline">
-                          <span className="flex-1 pl-2 text-[11px] text-gray-800 truncate">
-                            {item.nom}
-                          </span>
-                          <span className="w-16 text-center text-[11px] tabular-nums text-gray-700">
-                            {fmt(item.quantite)}
-                          </span>
-                          <span className="w-20 text-right text-[11px] tabular-nums text-gray-800 font-medium">
-                            {fmt(item.prix_unitaire * item.quantite)}
-                          </span>
-                        </div>
-                        {/* Controls discrets */}
-                        <div className="mt-1 flex items-center gap-1">
+                      <div key={item.id}>
+                        <ItemLine
+                          name={item.nom}
+                          qty={fmt(item.quantite)}
+                          price={fmt(item.prix_unitaire * item.quantite)}
+                        />
+                        <div className="no-print mb-0.5 flex items-center gap-1 pl-[3ch]">
                           <button
                             onClick={() => updateQuantity(item.id, -1)}
-                            className="flex h-5 w-5 items-center justify-center border border-gray-200 bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500 active:scale-90"
+                            className="flex h-5 w-5 items-center justify-center border border-gray-200 bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500"
                           >
                             <Minus size={9} />
                           </button>
-                          <span className="w-5 text-center text-[10px] text-gray-500">{item.quantite}</span>
+                          <span className="w-5 text-center text-[10px] font-normal text-gray-500">
+                            {item.quantite}
+                          </span>
                           <button
                             onClick={() => updateQuantity(item.id, 1)}
-                            className="flex h-5 w-5 items-center justify-center border border-gray-200 bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-800 active:scale-90"
+                            className="flex h-5 w-5 items-center justify-center border border-gray-200 bg-gray-50 text-gray-400 hover:bg-gray-100"
                           >
                             <Plus size={9} />
                           </button>
                           <button
                             onClick={() => removeItem(item.id)}
-                            className="ml-1 flex h-5 w-5 items-center justify-center text-gray-300 hover:text-red-400 active:scale-90"
+                            className="ml-1 flex h-5 w-5 items-center justify-center text-gray-300 hover:text-red-400"
                           >
                             <Trash2 size={9} />
                           </button>
-                          <span className="ml-auto text-[10px] text-gray-400 tabular-nums">
-                            {fmt(item.prix_unitaire)} / u
-                          </span>
                         </div>
                       </div>
                     ))}
 
-                    {/* ── Net Ventes — ligne pointillée */}
-                    <div className="flex items-center gap-1 px-3 py-1">
-                      <span className="text-[10px] text-gray-600 whitespace-nowrap">Net Ventes</span>
-                      <span className="flex-1 border-b border-dotted border-gray-400" />
-                    </div>
+                    {/* Totaux sous-catégorie (indentés comme "Ventes") */}
+                    <SummaryLine label="Net Ventes" qty={q} price={p} indent={1} />
+                    <SummaryLine label="dont Ventes" qty={q} price={p} indent={1} />
 
-                    {/* ── Bloc inversé : fond noir, texte blanc */}
-                    <div className="bg-black px-3 py-1 mb-3">
-                      <div className="flex items-center">
-                        <span className="flex-1 text-[10px] text-gray-300 whitespace-nowrap">
-                          Net {familleName.toUpperCase()}
-                        </span>
-                        <span className="w-16 text-center text-[10px] tabular-nums text-gray-300">
-                          {fmt(famQty)}
-                        </span>
-                        <span className="w-20 text-right text-[10px] tabular-nums font-bold text-white">
-                          {fmt(famTotal)}
-                        </span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="flex-1 text-[10px] text-gray-400">dont Ventes</span>
-                        <span className="w-16 text-center text-[10px] tabular-nums text-gray-400">
-                          {fmt(famQty)}
-                        </span>
-                        <span className="w-20 text-right text-[10px] tabular-nums text-gray-300">
-                          {fmt(famTotal)}
-                        </span>
-                      </div>
-                    </div>
-
+                    {/* Totaux catégorie : Net flush left + dont indenté
+                        (Brut n'apparaît sur Pointex que s'il y a Remises/Offerts) */}
+                    <SummaryLine label={`Net ${cat}`} qty={q} price={p} indent={0} />
+                    <SummaryLine label="dont Ventes" qty={q} price={p} indent={1} />
                   </div>
                 );
               })}
-            </div>
+
+              {/* Totaux globaux */}
+              <div className="mt-1 border-t border-black pt-1">
+                <SummaryLine
+                  label="Net Global"
+                  qty={fmt(totalQty)}
+                  price={fmt(total)}
+                />
+                <SummaryLine
+                  label="Brut Global"
+                  qty={fmt(totalQty)}
+                  price={fmt(total)}
+                />
+                <SummaryLine
+                  label="dont Ventes"
+                  qty={fmt(totalQty)}
+                  price={fmt(total)}
+                />
+              </div>
+
+              {/* TVA */}
+              <div className="mt-2 border border-black text-[9px] leading-tight">
+                <div className="grid grid-cols-4">
+                  <span className="px-1">Taux</span>
+                  <span className="px-1 text-right">TVA</span>
+                  <span className="px-1 text-right">Base HT</span>
+                  <span className="px-1 text-right">Base TTC</span>
+                </div>
+                <div className="grid grid-cols-4">
+                  <span className="px-1">10,00%</span>
+                  <span className="px-1 text-right">{fmt(totalTVA)}</span>
+                  <span className="px-1 text-right">{fmt(totalHT)}</span>
+                  <span className="px-1 text-right">{fmt(total)}</span>
+                </div>
+                <div className="ticket-invert grid grid-cols-4 bg-black text-white">
+                  <span className="px-1">Totaux</span>
+                  <span className="px-1 text-right">{fmt(totalTVA)}</span>
+                  <span className="px-1 text-right">{fmt(totalHT)}</span>
+                  <span className="px-1 text-right">{fmt(total)}</span>
+                </div>
+              </div>
+
+              <p className="mt-2 text-center text-[9px] font-normal leading-tight">
+                LA GAZELLE DE BABYLONE — Imprimé le {dateStr} {timeStr}
+              </p>
+              <p className="text-right text-[9px] font-normal">Page: 1</p>
+            </>
           )}
         </div>
 
-        {/* ── Totaux globaux ────────────────────────────────────────────── */}
-        {items.length > 0 && (
-          <div className="border-t border-dashed border-gray-400 px-3 py-2 font-mono">
-            {/* Grand total noir */}
-            <div className="mb-2 flex items-center bg-black px-2 py-1.5">
-              <span className="flex-1 text-[10px] text-gray-300 uppercase tracking-wide">Net Total</span>
-              <span className="w-16 text-center text-[10px] tabular-nums text-gray-300">
-                {totalQty.toFixed(2).replace(".", ",")}
-              </span>
-              <span className="w-20 text-right text-[10px] tabular-nums font-bold text-white">
-                {total.toFixed(2).replace(".", ",")}
-              </span>
-            </div>
-
-            {/* HT */}
-            <div className="flex justify-between py-0.5 text-[10px] text-gray-500">
-              <span>Total Hors Taxes</span>
-              <span className="tabular-nums">{totalHT.toFixed(2).replace(".", ",")}</span>
-            </div>
-
-            {/* TVA table */}
-            <div className="mt-1 border border-gray-200">
-              <div className="grid grid-cols-4 bg-gray-100 text-[9px] font-bold text-gray-500">
-                <span className="px-1 py-0.5">Taux</span>
-                <span className="px-1 py-0.5 text-right">TVA</span>
-                <span className="px-1 py-0.5 text-right">Base HT</span>
-                <span className="px-1 py-0.5 text-right">Base TTC</span>
-              </div>
-              <div className="grid grid-cols-4 text-[9px] text-gray-700">
-                <span className="px-1 py-0.5">10.00%</span>
-                <span className="px-1 py-0.5 text-right">{totalTVA.toFixed(2)}</span>
-                <span className="px-1 py-0.5 text-right">{totalHT.toFixed(2)}</span>
-                <span className="px-1 py-0.5 text-right">{total.toFixed(2)}</span>
-              </div>
-              <div className="grid grid-cols-4 bg-gray-800 text-[9px] font-bold text-white">
-                <span className="px-1 py-0.5">Totaux</span>
-                <span className="px-1 py-0.5 text-right">{totalTVA.toFixed(2)}</span>
-                <span className="px-1 py-0.5 text-right">{totalHT.toFixed(2)}</span>
-                <span className="px-1 py-0.5 text-right">{total.toFixed(2)}</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── Action buttons ────────────────────────────────────────────── */}
-        <div className="no-print flex flex-col gap-2 border-t border-gray-200 bg-white p-3">
-          {/* Test print button */}
+        {/* ── Boutons UI (hors impression) ──────────────────────────────── */}
+        <div className="no-print flex flex-col gap-2 border-t border-gray-200 bg-white p-3 font-sans">
           <button
             onClick={handlePrint}
             className="flex w-full cursor-pointer items-center justify-center gap-2 border border-dashed border-gray-300 py-2 text-xs font-medium text-gray-400 transition-colors hover:border-gray-400 hover:text-gray-600"
@@ -668,7 +713,6 @@ export default function POSPage() {
           </button>
 
           <div className="flex gap-2">
-            {/* Red cancel button */}
             <button
               onClick={clearCart}
               disabled={items.length === 0}
@@ -678,7 +722,6 @@ export default function POSPage() {
               <Trash2 size={18} />
             </button>
 
-            {/* Black checkout button */}
             <button
               onClick={handleCheckout}
               disabled={items.length === 0 || checkoutLoading}
