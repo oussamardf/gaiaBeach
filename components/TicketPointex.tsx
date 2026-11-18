@@ -13,21 +13,25 @@ import type { CartItem } from "@/store/useCartStore";
 // ── Cotes (mm) ───────────────────────────────────────────────────────────────
 export const T = {
   paper: 80, // largeur du papier
-  marginLeft: 4, // marge gauche du texte
-  content: 67, // largeur utile du texte (le reste = marge droite)
+  marginLeft: 4.2, // marge gauche du texte (mesurée : 4,2 mm)
+  content: 65.95, // largeur utile = bord droit du bloc noir
   font: 2.3, // corps du texte (≈ 6,5 pt)
-  line: 2.8, // interligne
-  gap: 1.1, // espace entre deux blocs (Ventes / Net CATÉGORIE…)
-  blockStart: 40, // début du bloc noir (qté + prix)
-  qtyRight: 50, // bord droit de la colonne quantité
-  priceRight: 66.7, // bord droit de la colonne prix
-  dotsEnd: 39.4, // fin des pointillés
-  // Retraits
-  indSub: 2.7, // « Ventes »
+  dotFont: 2.15, // corps des points de suite (pas mesuré : 0,60 mm)
+  line: 2.7, // interligne (mesuré : 2,68 mm)
+  gapNet: 2.3, // blanc avant le bloc « Net CATÉGORIE »
+  gapCat: 1.95, // blanc avant une nouvelle catégorie
+  blockStart: 40.2, // début du bloc noir (qté + prix)
+  qtyRight: 49.75, // bord droit de la colonne quantité (mesuré : 49,6–49,9)
+  priceRight: 65.9, // bord droit de la colonne prix
+  dotsEnd: 40.0, // fin des pointillés
+  gapFooter: 2.75, // blanc avant la ligne de pied Pointex
+  footerClip: 52.4, // le texte du pied est coupé à 52,4 mm (comme l'original)
+  // Retraits (depuis le bord gauche du texte)
+  indSub: 2.8, // « Ventes »
   indItem: 5.5, // articles
-  indNet: 2.5, // « Net Ventes »
+  indNet: 2.65, // « Net Ventes »
   indDont: 3.3, // « dont Ventes »
-  indCatDont: 0.8, // « dont Ventes » sous « Net CATÉGORIE »
+  indCatDont: 1.1, // « dont Ventes » sous « Net CATÉGORIE »
 } as const;
 
 const mm = (v: number) => `${v}mm`;
@@ -93,11 +97,14 @@ function SummaryLine({
   qty,
   price,
   indent,
+  invert = true,
 }: {
   label: string;
   qty: string;
   price: string;
   indent: number;
+  /** false = chiffres sans bloc noir (totaux « Global » du bas de ticket) */
+  invert?: boolean;
 }) {
   return (
     <div style={rowBase}>
@@ -110,9 +117,11 @@ function SummaryLine({
           overflow: "hidden",
         }}
       >
-        {label} {DOTS}
+        {label}
+        {"\u00a0\u00a0"}
+        <span style={{ fontSize: mm(T.dotFont) }}>{DOTS}</span>
       </span>
-      <Nums qty={qty} price={price} invert />
+      <Nums qty={qty} price={price} invert={invert} />
     </div>
   );
 }
@@ -125,7 +134,7 @@ function ItemLine({ name, qty, price }: { name: string; qty: string; price: stri
         style={{
           position: "absolute",
           left: mm(T.indItem),
-          width: mm(T.blockStart + 1 - T.indItem),
+          width: mm(41 - T.indItem),
           top: 0,
           overflow: "hidden",
           textTransform: "uppercase",
@@ -147,8 +156,9 @@ function Heading({ text, indent, small }: { text: string; indent: number; small?
           left: mm(indent),
           top: 0,
           textDecoration: "underline",
-          textUnderlineOffset: "0.35mm",
-          fontWeight: small ? "bold" : "normal",
+          textDecorationThickness: "0.25mm",
+          textUnderlineOffset: "0.12mm", // soulignement collé au texte (mesuré)
+          fontWeight: "normal",
           fontSize: small ? mm(1.95) : undefined,
           textTransform: small ? "uppercase" : undefined,
         }}
@@ -161,14 +171,17 @@ function Heading({ text, indent, small }: { text: string; indent: number; small?
 
 interface Props {
   items: CartItem[];
+  /** Date/heure réelle d'impression (pied de ticket) */
   date: Date;
+  /** Date de la caisse affichée dans l'en-tête (« Calculer la caisse du … ») */
+  caisseDate?: Date;
   /** Contrôles écran (+/−/supprimer) sous chaque article — jamais imprimés */
   renderItemControls?: (item: CartItem) => React.ReactNode;
 }
 
 const TicketPointex = React.forwardRef<HTMLDivElement, Props>(
-  ({ items, date, renderItemControls }, ref) => {
-    const dateStr = date.toLocaleDateString("fr-FR", {
+  ({ items, date, caisseDate, renderItemControls }, ref) => {
+    const caisseStr = (caisseDate ?? date).toLocaleDateString("fr-FR", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -185,9 +198,13 @@ const TicketPointex = React.forwardRef<HTMLDivElement, Props>(
 
     const total = items.reduce((s, i) => s + i.prix_unitaire * i.quantite, 0);
     const totalQty = items.reduce((s, i) => s + i.quantite, 0);
-    const TVA_RATE = 0.1;
-    const totalTVA = total * (TVA_RATE / (1 + TVA_RATE));
-    const totalHT = total - totalTVA;
+    // « dimanche 16 novembre 2026 à 14:00 » (coupé à l'impression comme l'original)
+    const printedLong = `${date.toLocaleDateString("fr-FR", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    })} à ${timeStr}`;
 
     return (
       <div
@@ -206,26 +223,40 @@ const TicketPointex = React.forwardRef<HTMLDivElement, Props>(
         }}
       >
         <div style={{ width: mm(T.content) }}>
-          {/* ── En-tête ─────────────────────────────────────────────── */}
-          <div style={{ textAlign: "center", marginBottom: mm(0.6) }}>
+          {/* ── En-tête ─────────────────────────────────────────────
+              Interlignes réglés sur les lignes de base mesurées :
+              titre → date 4,2 mm · date → ARTICLE 4,1 mm ·
+              ARTICLE → pointillé 2,2 mm · ARTICLE → 1re ligne 4,2 mm */}
+          <div style={{ textAlign: "center" }}>
             <div
               style={{
                 fontSize: mm(3.8),
-                lineHeight: mm(4.6),
+                lineHeight: mm(4.2),
                 fontWeight: "bold",
                 textDecoration: "underline",
-                textUnderlineOffset: "0.5mm",
+                textDecorationThickness: "0.35mm",
+                textUnderlineOffset: "0.55mm",
               }}
             >
               LA GAZELLE DE BABYLONE
             </div>
-            <div style={{ fontSize: mm(3.85), lineHeight: mm(4.3) }}>
-              Calculer la caisse du {dateStr}
+            <div style={{ fontSize: mm(3.8), lineHeight: mm(4.2) }}>
+              Calculer la caisse du {caisseStr}
             </div>
-            <div style={{ fontSize: mm(3.3), lineHeight: mm(4.3), fontWeight: "bold" }}>
+            <div style={{ fontSize: mm(3.5), lineHeight: mm(4.2), fontWeight: "bold" }}>
               ARTICLE VENDUS
             </div>
           </div>
+          {/* Fine ligne pointillée sous l'en-tête (pleine largeur du texte) */}
+          <div
+            style={{
+              marginTop: mm(1.31),
+              marginBottom: mm(1.8),
+              height: mm(0.2),
+              backgroundImage:
+                "repeating-linear-gradient(to right, #000 0, #000 0.2mm, transparent 0.2mm, transparent 0.5mm)",
+            }}
+          />
 
           {items.length === 0 ? (
             <div style={{ textAlign: "center", padding: "10mm 0", color: "#999" }} className="no-print">
@@ -238,7 +269,7 @@ const TicketPointex = React.forwardRef<HTMLDivElement, Props>(
                 const q = fmt(famItems.reduce((s, i) => s + i.quantite, 0));
                 const p = fmt(famItems.reduce((s, i) => s + i.prix_unitaire * i.quantite, 0));
                 return (
-                  <div key={famille} style={{ marginTop: gi === 0 ? 0 : mm(T.gap) }}>
+                  <div key={famille} style={{ marginTop: gi === 0 ? 0 : mm(T.gapCat) }}>
                     <Heading text={cat} indent={0} small />
                     <Heading text="Ventes" indent={T.indSub} />
                     {famItems.map((item) => (
@@ -256,7 +287,7 @@ const TicketPointex = React.forwardRef<HTMLDivElement, Props>(
                     <SummaryLine label="Net Ventes" qty={q} price={p} indent={T.indNet} />
                     <SummaryLine label="dont Ventes" qty={q} price={p} indent={T.indDont} />
 
-                    <div style={{ marginTop: mm(T.gap) }}>
+                    <div style={{ marginTop: mm(T.gapNet) }}>
                       <SummaryLine label={`Net ${cat}`} qty={q} price={p} indent={0} />
                       <SummaryLine label="dont Ventes" qty={q} price={p} indent={T.indCatDont} />
                     </div>
@@ -264,53 +295,46 @@ const TicketPointex = React.forwardRef<HTMLDivElement, Props>(
                 );
               })}
 
-              {/* ── Totaux généraux ──────────────────────────────────── */}
-              <div style={{ marginTop: mm(T.gap * 2) }}>
-                <SummaryLine label="Net TOTAL" qty={fmt(totalQty)} price={fmt(total)} indent={0} />
-                <SummaryLine label="dont Ventes" qty={fmt(totalQty)} price={fmt(total)} indent={T.indCatDont} />
-              </div>
-
-              {/* ── TVA ─────────────────────────────────────────────── */}
-              <div
-                style={{
-                  marginTop: mm(T.gap * 2),
-                  border: "0.25mm solid #000",
-                  fontSize: mm(2.1),
-                }}
-              >
+              {/* ── Totaux « Global » (chiffres normaux, sans bloc noir) ─── */}
+              <div style={{ marginTop: mm(T.gapNet) }}>
+                {/* Mêmes 6 lignes que l'original. Offerts / Remises / Annulations
+                    à 0,00 tant que la caisse ne les enregistre pas. */}
                 {[
-                  { cells: ["Taux", "TVA", "Base HT", "Base TTC"], invert: false },
-                  { cells: ["10,00%", fmt(totalTVA), fmt(totalHT), fmt(total)], invert: false },
-                  { cells: ["Totaux", fmt(totalTVA), fmt(totalHT), fmt(total)], invert: true },
-                ].map((r, ri) => (
-                  <div
-                    key={ri}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(4, 1fr)",
-                      height: mm(T.line),
-                      lineHeight: mm(T.line),
-                      backgroundColor: r.invert ? "#000" : "#fff",
-                      color: r.invert ? "#fff" : "#000",
-                      fontWeight: r.invert ? "bold" : "normal",
-                    }}
-                  >
-                    {r.cells.map((c, ci) => (
-                      <span
-                        key={ci}
-                        style={{ padding: "0 0.8mm", textAlign: ci === 0 ? "left" : "right" }}
-                      >
-                        {c}
-                      </span>
-                    ))}
-                  </div>
+                  { label: "Net Global", q: totalQty, p: total, ind: 0 },
+                  { label: "Brut Global", q: totalQty, p: total, ind: 0 },
+                  { label: "dont Ventes", q: totalQty, p: total, ind: T.indCatDont },
+                  { label: "dont Offerts", q: 0, p: 0, ind: T.indCatDont },
+                  { label: "dont Remises", q: 0, p: 0, ind: T.indCatDont },
+                  { label: "Annulations Global", q: 0, p: 0, ind: 0 },
+                ].map((l) => (
+                  <SummaryLine
+                    key={l.label}
+                    label={l.label}
+                    qty={fmt(l.q)}
+                    price={fmt(l.p)}
+                    indent={l.ind}
+                    invert={false}
+                  />
                 ))}
               </div>
 
-              <div style={{ marginTop: mm(T.gap * 2), textAlign: "center", fontSize: mm(2) }}>
-                LA GAZELLE DE BABYLONE — Imprimé le {dateStr} {timeStr}
+              {/* ── Pied Pointex : texte coupé à 52,4 mm + « Page: 1 » à droite ── */}
+              <div style={{ ...rowBase, marginTop: mm(T.gapFooter) }}>
+                <span
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    width: mm(T.footerClip),
+                    overflow: "hidden",
+                  }}
+                >
+                  Pointex CHR - (C)POINTEX - Imprimé le {printedLong}
+                </span>
+                <span style={{ position: "absolute", right: mm(T.content - T.priceRight), top: 0 }}>
+                  Page: 1
+                </span>
               </div>
-              <div style={{ textAlign: "right", fontSize: mm(2) }}>Page: 1</div>
             </>
           )}
         </div>

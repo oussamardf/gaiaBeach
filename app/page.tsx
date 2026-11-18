@@ -41,6 +41,15 @@ export default function POSPage() {
   } | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
+  // ── Date de la caisse (saisie manuelle, aujourd'hui par défaut) ──────────
+  const todayISO = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  const [caisseDateISO, setCaisseDateISO] = useState<string>(todayISO);
+  // midi local : évite tout décalage de jour lié au fuseau horaire
+  const caisseDate = caisseDateISO ? new Date(`${caisseDateISO}T12:00:00`) : new Date();
+
   // ── Cart store ────────────────────────────────────────────────────────────
   const { items, addItem, removeItem, updateQuantity, clearCart, getTotal } =
     useCartStore();
@@ -371,6 +380,7 @@ export default function POSPage() {
             <TicketPointex
               items={items}
               date={now}
+              caisseDate={caisseDate}
               renderItemControls={(item) => (
                 <div className="flex items-center gap-1 py-0.5 pl-[5.5mm] font-sans">
                   <button
@@ -402,6 +412,26 @@ export default function POSPage() {
 
         {/* ── Boutons UI (hors impression) ──────────────────────────────── */}
         <div className="no-print flex flex-col gap-2 border-t border-gray-200 bg-white p-3 font-sans">
+          <label className="flex items-center justify-between gap-2 text-xs text-gray-600">
+            <span className="font-medium">Date de la caisse</span>
+            <span className="flex items-center gap-1">
+              <input
+                type="date"
+                value={caisseDateISO}
+                onChange={(e) => setCaisseDateISO(e.target.value)}
+                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-800 focus:border-gray-500 focus:outline-none"
+              />
+              {caisseDateISO !== todayISO() && (
+                <button
+                  type="button"
+                  onClick={() => setCaisseDateISO(todayISO())}
+                  className="cursor-pointer rounded border border-gray-200 px-2 py-1 text-[10px] text-gray-500 hover:bg-gray-50"
+                >
+                  Aujourd&apos;hui
+                </button>
+              )}
+            </span>
+          </label>
           <button
             onClick={handlePrint}
             className="flex w-full cursor-pointer items-center justify-center gap-2 border border-dashed border-gray-300 py-2 text-xs font-medium text-gray-400 transition-colors hover:border-gray-400 hover:text-gray-600"
