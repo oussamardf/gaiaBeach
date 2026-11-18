@@ -355,6 +355,42 @@ export default function BilanTotalPage() {
     year: "numeric",
   })} à ${now.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
 
+  // ── Impression : fenêtre dédiée contenant uniquement le ticket ──────────
+  // (le ticket est en styles inline → rendu identique ; la règle @media print
+  //  de globals.css, qui masque toute la page, ne s'applique pas ici)
+  const handlePrint = () => {
+    const ticket = document.getElementById("ticket-container");
+    if (!ticket) return;
+    const w = window.open("", "_blank", "width=420,height=800");
+    if (!w) {
+      alert("Veuillez autoriser les pop-ups pour imprimer le bilan.");
+      return;
+    }
+    w.document.write(`<!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Bilan total — LA GAZELLE DE BABYLONE</title>
+          <style>
+            @page { size: 80mm auto; margin: 0; }
+            html, body { margin: 0; padding: 0; background: #fff; width: 80mm; }
+            * {
+              box-sizing: border-box;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+          </style>
+        </head>
+        <body>${ticket.outerHTML}</body>
+      </html>`);
+    w.document.close();
+    w.focus();
+    setTimeout(() => {
+      w.print();
+      w.close();
+    }, 350);
+  };
+
   // ── Champs du formulaire ─────────────────────────────────────────────────
   const champs: {
     groupe: string;
@@ -390,26 +426,6 @@ export default function BilanTotalPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 font-sans print:bg-white">
-      {/* ── CSS d'impression : seul #ticket-container sort, page 80 mm ─────── */}
-      <style>{`
-        @media print {
-          @page { size: 80mm auto; margin: 0; }
-          html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; width: 80mm; }
-          body * { visibility: hidden !important; }
-          #ticket-container, #ticket-container * { visibility: visible !important; }
-          #ticket-container {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            margin: 0 !important;
-            box-shadow: none !important;
-          }
-          * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-        }
-      `}</style>
 
       {/* ══ 1. FORMULAIRE (jamais imprimé) ══════════════════════════════════ */}
       <div className="print:hidden mx-auto max-w-3xl p-4">
@@ -420,7 +436,7 @@ export default function BilanTotalPage() {
               ← Retour caisse
             </Link>
             <button
-              onClick={() => window.print()}
+              onClick={handlePrint}
               className="cursor-pointer rounded bg-gray-900 px-4 py-2 text-sm font-bold text-white hover:bg-gray-800"
             >
               Imprimer le bilan
