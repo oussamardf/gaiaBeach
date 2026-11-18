@@ -37,7 +37,7 @@ const T = {
   marginLeft: 2.9, // bord gauche du texte
   content: 67.2, // largeur utile (bord droit des montants à 70,1 mm du papier)
   font: 2.6, // corps du texte
-  line: 3.3, // interligne
+  line: 3.25, // interligne (mesuré : 3,25 mm)
   dotsEnd: 47, // fin des points de suite
   indent: 3.3, // retrait « Règlements… » / « Mouvements de caisse »
   // Tableau « Sous état général » (depuis le bord gauche du texte)
@@ -180,7 +180,7 @@ function SousEtatTable({
   lignes: { mode: string; qte: string; montant: string }[];
 }) {
   const H = 11.7; // hauteur mesurée (en-tête + 2 lignes)
-  const rowTops = [1.1, 5.1, 8.4]; // en-tête, 1re ligne, 2e ligne
+  const rowTops = [0.61, 4.85, 8.07]; // en-tête, 1re ligne, 2e ligne (mesurés)
   const cell = (top: number): CSSProperties => ({
     position: "absolute",
     top: mm(top),
@@ -219,8 +219,10 @@ function SousEtatTable({
 function TvaTable({ titre, ttc, marginTop }: { titre: string; ttc: number; marginTop: number }) {
   const ht = ttc / (1 + TVA_RATE);
   const tva = ttc - ht;
-  const H = 13.1; // haut de tableau → bas des traits
-  const tops = { header: 1.7, r1: 5.4, r2: 9.4 };
+  // Mesuré sur l'original (depuis la ligne de base du titre) :
+  // traits +0,35 · en-tête +4,35 · 10,00% +8,65 · Totaux +13,05 · bas des traits +15,0
+  const H = 14.65; // haut → bas des traits
+  const tops = { header: 1.47, r1: 5.77, r2: 10.17 }; // en-tête / 10,00% / Totaux
   const cell = (top: number, bold: boolean): CSSProperties => ({
     position: "absolute",
     top: mm(top),
@@ -243,6 +245,7 @@ function TvaTable({ titre, ttc, marginTop }: { titre: string; ttc: number; margi
         style={{
           textAlign: "center",
           fontWeight: "bold",
+          fontSize: mm(2.65), // titre mesuré : 40,5 mm de large
           height: mm(T.line),
           lineHeight: mm(T.line),
           textDecoration: SOULIGNER_TOUS_LES_TITRES ? "underline" : "none",
@@ -250,7 +253,7 @@ function TvaTable({ titre, ttc, marginTop }: { titre: string; ttc: number; margi
       >
         {titre}
       </div>
-      <div style={{ position: "relative", height: mm(H) }}>
+      <div style={{ position: "relative", height: mm(H), marginTop: mm(-0.37) }}>
         <span style={vline(0, 0, H)} />
         <span style={vline(T.tvaCol1, 0, H)} />
         <span style={vline(T.tvaCol2, 0, H)} />
@@ -508,22 +511,22 @@ export default function BilanTotalPage() {
           <div style={{ width: mm(T.content) }}>
             {/* ── En-tête ──────────────────────────────────────────────── */}
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: mm(3.2), lineHeight: mm(3.3), fontWeight: "bold" }}>
+              <div style={{ fontSize: mm(3.2), lineHeight: mm(3.5), fontWeight: "bold" }}>
                 LA GAZELLE DE BABYLONE
               </div>
-              <div style={{ fontSize: mm(3.2), lineHeight: mm(3.3) }}>
+              <div style={{ fontSize: mm(3.2), lineHeight: mm(3.5) }}>
                 Calculer la caisse du {dateStr}
               </div>
-              <div style={{ fontSize: mm(3.9), lineHeight: mm(4.8) }}>BILAN TOTAL</div>
+              <div style={{ fontSize: mm(3.9), lineHeight: mm(5.51) }}>BILAN TOTAL</div>
             </div>
             <div
               style={{
                 fontSize: mm(4.4),
-                lineHeight: mm(5.85),
+                lineHeight: mm(3.78),
                 fontWeight: "bold",
                 textDecoration: "underline",
-                textDecorationThickness: "0.4mm",
-                textUnderlineOffset: "0.45mm",
+                textDecorationThickness: "0.35mm",
+                textUnderlineOffset: "0.15mm", // soulignement collé aux lettres (mesuré)
               }}
             >
               {ETABLISSEMENT}
@@ -531,7 +534,7 @@ export default function BilanTotalPage() {
             {/* fin pointillé sous le nom de l'établissement */}
             <div
               style={{
-                marginTop: mm(0.1),
+                marginTop: mm(0.535),
                 width: mm(46),
                 height: mm(0.2),
                 backgroundImage:
@@ -543,8 +546,8 @@ export default function BilanTotalPage() {
             <SectionTitle
               text="Sous état général"
               underline={SOULIGNER_TOUS_LES_TITRES}
-              marginTop={3.0}
-              marginBottom={0}
+              marginTop={3.8}
+              marginBottom={0.25}
             />
             <SousEtatTable
               lignes={[
@@ -554,13 +557,13 @@ export default function BilanTotalPage() {
             />
 
             {/* ── Totaux ───────────────────────────────────────────────── */}
-            <SectionTitle text="Totaux" marginTop={6.4} marginBottom={3.0} />
+            <SectionTitle text="Totaux" marginTop={6.19} marginBottom={3.25} />
             <Line label="Ventes encaissées" value={fmt(c.ventesEncaissees)} bold />
             <Blank />
             <Line label="Total de l'activité" value={fmt(c.totalActivite)} bold />
 
             {/* ── Statistiques ─────────────────────────────────────────── */}
-            <SectionTitle text="Statistiques" marginTop={1.8} marginBottom={3.3} />
+            <SectionTitle text="Statistiques" marginTop={2.05} marginBottom={3.62} />
             <Line label="Nombre de notes payantes" value={fmtInt(num(nombreNotesPayantes))} />
             <Line label="Moyenne notes" value={fmt(c.moyenneNotes)} />
             <Blank />
@@ -578,12 +581,12 @@ export default function BilanTotalPage() {
             <Line label="Total Hors Taxes" value={fmt(c.totalHorsTaxes)} />
 
             {/* ── Répartition des T.V.A. ───────────────────────────────── */}
-            <TvaTable titre="Répartition des T.V.A. sur le C.A." ttc={c.totalCANet} marginTop={1.0} />
-            <TvaTable titre="Répartition des T.V.A. sur les Remises" ttc={num(remises)} marginTop={2.8} />
-            <TvaTable titre="Répartition des T.V.A. sur les Offerts" ttc={num(offerts)} marginTop={2.8} />
+            <TvaTable titre="Répartition des T.V.A. sur le C.A." ttc={c.totalCANet} marginTop={4.5} />
+            <TvaTable titre="Répartition des T.V.A. sur les Remises" ttc={num(remises)} marginTop={2.71} />
+            <TvaTable titre="Répartition des T.V.A. sur les Offerts" ttc={num(offerts)} marginTop={2.71} />
 
             {/* ── Pied Pointex ─────────────────────────────────────────── */}
-            <div style={{ ...row, marginTop: mm(15) }}>
+            <div style={{ ...row, marginTop: mm(14.22) }}>
               <span
                 style={{
                   position: "absolute",
