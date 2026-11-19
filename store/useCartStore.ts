@@ -7,6 +7,8 @@ export interface CartItem {
   quantite: number;
   famille_id: number;
   famille_nom: string;
+  /** Division de la famille (FOOD, DRINKS, SALON, TRANSAT) */
+  division?: string | null;
 }
 
 interface CartStore {

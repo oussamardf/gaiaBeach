@@ -1,5 +1,6 @@
 import React from "react";
 import type { CartItem } from "@/store/useCartStore";
+import { DIVISIONS, divisionRank } from "@/lib/divisions";
 
 /*
  * Ticket « Calculer la caisse / ARTICLE VENDUS » — reproduction du ticket Pointex
@@ -32,6 +33,8 @@ export const T = {
   indNet: 2.65, // « Net Ventes »
   indDont: 3.3, // « dont Ventes »
   indCatDont: 1.1, // « dont Ventes » sous « Net CATÉGORIE »
+  indDiv: 2.1, // « Net DRINKS » (récap de division, mesuré sur photo)
+  indDivDont: 2.8, // « dont Ventes » sous « Net DRINKS »
 } as const;
 
 const mm = (v: number) => `${v}mm`;
@@ -175,12 +178,14 @@ interface Props {
   date: Date;
   /** Date de la caisse affichée dans l'en-tête (« Calculer la caisse du … ») */
   caisseDate?: Date;
+  /** Nom de l'établissement (en-tête) */
+  nom?: string;
   /** Contrôles écran (+/−/supprimer) sous chaque article — jamais imprimés */
   renderItemControls?: (item: CartItem) => React.ReactNode;
 }
 
 const TicketPointex = React.forwardRef<HTMLDivElement, Props>(
-  ({ items, date, caisseDate, renderItemControls }, ref) => {
+  ({ items, date, caisseDate, nom = "LA GAZELLE DE BABYLONE", renderItemControls }, ref) => {
     const caisseStr = (caisseDate ?? date).toLocaleDateString("fr-FR", {
       day: "2-digit",
       month: "2-digit",
@@ -188,18 +193,26 @@ const TicketPointex = React.forwardRef<HTMLDivElement, Props>(
     });
     const timeStr = date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
-    // Regroupement par famille (ordre d'ajout)
-    const groups: [string, CartItem[]][] = [];
-    for (const it of items) {
-      const g = groups.find(([k]) => k === it.famille_nom);
+    // Regroupement par division (FOOD → DRINKS → SALON → TRANSAT → sans),
+    // puis par famille (ordre d'ajout dans le panier)
+    type FamGroup = [string, CartItem[]];
+    const divisions: { division: string | null; familles: FamGroup[] }[] = [];
+    const sorted = [...items].sort((a, b) => divisionRank(a.division) - divisionRank(b.division));
+    for (const it of sorted) {
+      const div = DIVISIONS.includes(it.division as (typeof DIVISIONS)[number]) ? it.division! : null;
+      let d = divisions.find((x) => x.division === div);
+      if (!d) divisions.push((d = { division: div, familles: [] }));
+      const g = d.familles.find(([k]) => k === it.famille_nom);
       if (g) g[1].push(it);
-      else groups.push([it.famille_nom, [it]]);
+      else d.familles.push([it.famille_nom, [it]]);
     }
+    let famIndex = 0; // pour l'espacement entre familles
 
     const total = items.reduce((s, i) => s + i.prix_unitaire * i.quantite, 0);
     const totalQty = items.reduce((s, i) => s + i.quantite, 0);
     // « dimanche 16 novembre 2026 à 14:00 » (coupé à l'impression comme l'original)
-    const printedLong = `${date.toLocaleDateString("fr-FR", {
+    // jour = date de la caisse choisie ; heure = heure réelle d'impression
+    const printedLong = `${(caisseDate ?? date).toLocaleDateString("fr-FR", {
       weekday: "long",
       day: "numeric",
       month: "long",
@@ -238,7 +251,7 @@ const TicketPointex = React.forwardRef<HTMLDivElement, Props>(
                 textUnderlineOffset: "0.55mm",
               }}
             >
-              LA GAZELLE DE BABYLONE
+              {nom}
             </div>
             <div style={{ fontSize: mm(3.8), lineHeight: mm(4.2) }}>
               Calculer la caisse du {caisseStr}
@@ -264,34 +277,66 @@ const TicketPointex = React.forwardRef<HTMLDivElement, Props>(
             </div>
           ) : (
             <>
-              {groups.map(([famille, famItems], gi) => {
-                const cat = famille.toUpperCase();
-                const q = fmt(famItems.reduce((s, i) => s + i.quantite, 0));
-                const p = fmt(famItems.reduce((s, i) => s + i.prix_unitaire * i.quantite, 0));
+              {divisions.map((d) => {
+                const dq = d.familles.reduce((s, [, its]) => s + its.reduce((x, i) => x + i.quantite, 0), 0);
+                const dp = d.familles.reduce((s, [, its]) => s + its.reduce((x, i) => x + i.prix_unitaire * i.quantite, 0), 0);
+                const DIV = d.division;
                 return (
-                  <div key={famille} style={{ marginTop: gi === 0 ? 0 : mm(T.gapCat) }}>
-                    <Heading text={cat} indent={0} small />
-                    <Heading text="Ventes" indent={T.indSub} />
-                    {famItems.map((item) => (
-                      <React.Fragment key={item.id}>
-                        <ItemLine
-                          name={item.nom}
-                          qty={fmt(item.quantite)}
-                          price={fmt(item.prix_unitaire * item.quantite)}
-                        />
-                        {renderItemControls && (
-                          <div className="no-print">{renderItemControls(item)}</div>
-                        )}
-                      </React.Fragment>
-                    ))}
-                    <SummaryLine label="Net Ventes" qty={q} price={p} indent={T.indNet} />
-                    <SummaryLine label="dont Ventes" qty={q} price={p} indent={T.indDont} />
+                  <React.Fragment key={DIV ?? "sans-division"}>
+                {d.familles.map(([famille, famItems]) => {
+                  const gi = famIndex++;
+                  const cat = famille.toUpperCase();
+                  const q = fmt(famItems.reduce((s, i) => s + i.quantite, 0));
+                  const p = fmt(famItems.reduce((s, i) => s + i.prix_unitaire * i.quantite, 0));
+                  return (
+                    <div key={famille} style={{ marginTop: gi === 0 ? 0 : mm(T.gapCat) }}>
+                      <Heading text={cat} indent={0} small />
+                      <Heading text="Ventes" indent={T.indSub} />
+                      {famItems.map((item) => (
+                        <React.Fragment key={item.id}>
+                          <ItemLine
+                            name={item.nom}
+                            qty={fmt(item.quantite)}
+                            price={fmt(item.prix_unitaire * item.quantite)}
+                          />
+                          {renderItemControls && (
+                            <div className="no-print">{renderItemControls(item)}</div>
+                          )}
+                        </React.Fragment>
+                      ))}
+                      <SummaryLine label="Net Ventes" qty={q} price={p} indent={T.indNet} />
+                      <SummaryLine label="dont Ventes" qty={q} price={p} indent={T.indDont} />
 
-                    <div style={{ marginTop: mm(T.gapNet) }}>
-                      <SummaryLine label={`Net ${cat}`} qty={q} price={p} indent={0} />
-                      <SummaryLine label="dont Ventes" qty={q} price={p} indent={T.indCatDont} />
+                      <div style={{ marginTop: mm(T.gapNet) }}>
+                        <SummaryLine label={`Net ${cat}`} qty={q} price={p} indent={0} />
+                        <SummaryLine label="dont Ventes" qty={q} price={p} indent={T.indCatDont} />
+                      </div>
                     </div>
-                  </div>
+                  );
+                })}
+
+                    {/* ── Récap de division (chiffres normaux, comme l'original) ── */}
+                    {DIV && (
+                      <div style={{ marginTop: mm(T.gapNet) }}>
+                        {[
+                          { label: `Net ${DIV}`, q: dq, p: dp, ind: T.indDiv },
+                          { label: `Brut ${DIV}`, q: dq, p: dp, ind: T.indDiv },
+                          { label: "dont Ventes", q: dq, p: dp, ind: T.indDivDont },
+                          { label: "dont Offerts", q: 0, p: 0, ind: T.indDivDont },
+                          { label: `Annulations ${DIV}`, q: 0, p: 0, ind: T.indDiv },
+                        ].map((l) => (
+                          <SummaryLine
+                            key={l.label}
+                            label={l.label}
+                            qty={fmt(l.q)}
+                            price={fmt(l.p)}
+                            indent={l.ind}
+                            invert={false}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </React.Fragment>
                 );
               })}
 

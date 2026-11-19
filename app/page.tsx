@@ -16,6 +16,8 @@ import { type Famille, type Article } from "@/lib/supabase";
 import { createClient as createBrowserClient } from "@/lib/supabase/client";
 import { useCartStore } from "@/store/useCartStore";
 import TicketPointex from "@/components/TicketPointex";
+import { useNomEtablissement } from "@/lib/useNomEtablissement";
+import { DIVISIONS, DIVISION_LABELS, divisionRank, type Division } from "@/lib/divisions";
 
 // ── RLS fix SQL shown to user when tables are empty ──────────────────────────
 const RLS_FIX_SQL = `-- Copiez et exécutez ce SQL dans Supabase → SQL Editor
@@ -47,6 +49,7 @@ export default function POSPage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   };
   const [caisseDateISO, setCaisseDateISO] = useState<string>(todayISO);
+  const { nom: nomEtab, setNom: setNomEtab, nomImprime } = useNomEtablissement();
   // midi local : évite tout décalage de jour lié au fuseau horaire
   const caisseDate = caisseDateISO ? new Date(`${caisseDateISO}T12:00:00`) : new Date();
 
@@ -71,7 +74,7 @@ export default function POSPage() {
       <html>
         <head>
           <meta charset="utf-8" />
-          <title>Ticket de Caisse — LA GAZELLE DE BABYLONE</title>
+          <title>Ticket de Caisse — ${nomImprime}</title>
           <style>
             @page { size: 80mm auto; margin: 0; }
             html, body { margin: 0; padding: 0; background: #fff; width: 80mm; }
@@ -124,7 +127,7 @@ export default function POSPage() {
         { data: famillesData, error: fe },
         { data: articlesData, error: ae },
       ] = await Promise.all([
-        supabase.from("familles").select("*").order("ordre_affichage").order("nom"),
+        supabase.from("familles").select("*").order("nom"),
         supabase.from("articles").select("*").eq("est_actif", true).order("nom"),
       ]);
 
@@ -142,7 +145,9 @@ export default function POSPage() {
           setRlsBlocked(true);
         }
         if (fams.length > 0) {
-          setSelectedFamilleId(fams[0].id);
+          // 1re famille affichée (ordre des divisions, puis alphabétique)
+          const first = [...fams].sort((x, y) => divisionRank(x.division) - divisionRank(y.division))[0];
+          setSelectedFamilleId(first.id);
         }
       }
       setLoading(false);
@@ -295,19 +300,37 @@ export default function POSPage() {
               ? Array.from({ length: 8 }).map((_, i) => (
                   <div key={i} className="mx-3 my-1.5 h-8 animate-pulse rounded bg-gray-100" />
                 ))
-              : familles.map((f) => (
-                  <button
-                    key={f.id}
-                    onClick={() => setSelectedFamilleId(f.id)}
-                    className={`cursor-pointer border-l-2 px-4 py-3 text-left text-xs font-medium leading-snug transition-colors ${
-                      selectedFamilleId === f.id
-                        ? "border-gray-800 bg-gray-100 text-gray-900"
-                        : "border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-700"
-                    }`}
-                  >
-                    {f.nom}
-                  </button>
-                ))}
+              : [...DIVISIONS, null].map((div) => {
+                  const fams = familles.filter((f) =>
+                    div === null
+                      ? !DIVISIONS.includes((f.division ?? "") as Division)
+                      : f.division === div
+                  );
+                  if (fams.length === 0) return null;
+                  return (
+                    <div key={div ?? "sans"}>
+                      {/* En-tête de division (masqué s'il n'y a aucune division) */}
+                      {(div !== null || familles.some((f) => f.division)) && (
+                        <div className="sticky top-0 z-10 border-b border-gray-100 bg-gray-50 px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                          {div ? DIVISION_LABELS[div] : "Sans division"}
+                        </div>
+                      )}
+                      {fams.map((f) => (
+                        <button
+                          key={f.id}
+                          onClick={() => setSelectedFamilleId(f.id)}
+                          className={`w-full cursor-pointer border-l-2 px-4 py-3 text-left text-xs font-medium leading-snug transition-colors ${
+                            selectedFamilleId === f.id
+                              ? "border-gray-800 bg-gray-100 text-gray-900"
+                              : "border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+                          }`}
+                        >
+                          {f.nom}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })}
           </nav>
 
           {/* ── Article grid ───────────────────────────────────────────── */}
@@ -341,6 +364,7 @@ export default function POSPage() {
                         prix_unitaire: article.prix_unitaire,
                         famille_id: article.famille_id,
                         famille_nom: famille?.nom ?? "Autre",
+                        division: famille?.division ?? null,
                       })
                     }
                     style={{ minHeight: "72px" }}
@@ -381,9 +405,15 @@ export default function POSPage() {
         <div className="flex-1 overflow-y-auto bg-gray-100 py-3">
           <div id="ticket-print" className="mx-auto w-fit shadow-sm">
             <TicketPointex
-              items={items}
+              items={items.map((i) => ({
+                ...i,
+                // division actuelle de la famille (même si l'article a été
+                // ajouté au panier avant un changement de division)
+                division: familles.find((f) => f.id === i.famille_id)?.division ?? null,
+              }))}
               date={now}
               caisseDate={caisseDate}
+              nom={nomImprime}
               renderItemControls={(item) => (
                 <div className="flex items-center gap-1 py-0.5 pl-[5.5mm] font-sans">
                   <button
@@ -415,6 +445,16 @@ export default function POSPage() {
 
         {/* ── Boutons UI (hors impression) ──────────────────────────────── */}
         <div className="no-print flex flex-col gap-2 border-t border-gray-200 bg-white p-3 font-sans">
+          <label className="flex items-center justify-between gap-2 text-xs text-gray-600">
+            <span className="font-medium">Nom</span>
+            <input
+              type="text"
+              value={nomEtab}
+              onChange={(e) => setNomEtab(e.target.value)}
+              placeholder="LA GAZELLE DE BABYLONE"
+              className="w-56 rounded border border-gray-300 px-2 py-1 text-xs text-gray-800 focus:border-gray-500 focus:outline-none"
+            />
+          </label>
           <label className="flex items-center justify-between gap-2 text-xs text-gray-600">
             <span className="font-medium">Date de la caisse</span>
             <span className="flex items-center gap-1">

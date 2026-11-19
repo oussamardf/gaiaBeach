@@ -12,6 +12,7 @@
 
 import { useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
+import { useNomEtablissement } from "@/lib/useNomEtablissement";
 
 // ════════════════════════════════════════════════════════════════════════════
 //  RÉGLAGES
@@ -305,11 +306,11 @@ const todayISO = () => {
 export default function BilanTotalPage() {
   // ── États manuels ────────────────────────────────────────────────────────
   const [dateISO, setDateISO] = useState(todayISO);
+  const { nom: nomEtab, setNom: setNomEtab, nomImprime } = useNomEtablissement();
   const [especeQte, setEspeceQte] = useState("");
   const [especeMontant, setEspeceMontant] = useState("");
   const [carteQte, setCarteQte] = useState("");
   const [carteMontant, setCarteMontant] = useState("");
-  const [nombreNotesPayantes, setNombreNotesPayantes] = useState("");
   const [notesSoldees, setNotesSoldees] = useState("");
   const [notesOuvertes, setNotesOuvertes] = useState("");
   const [remises, setRemises] = useState("");
@@ -321,7 +322,9 @@ export default function BilanTotalPage() {
   const c = useMemo(() => {
     const espM = num(especeMontant);
     const carM = num(carteMontant);
-    const nbNotes = Math.round(num(nombreNotesPayantes));
+    // Nombre de notes payantes = Qté ESPECE + Qté CARTE DE CREDIT (calculé)
+    const nombreNotesPayantes = Math.round(num(especeQte) + num(carteQte));
+    const nbNotes = nombreNotesPayantes;
     const rem = num(remises);
     const off = num(offerts);
 
@@ -334,6 +337,7 @@ export default function BilanTotalPage() {
     const totalHorsTaxes = totalCANet / (1 + TVA_RATE); // 7
 
     return {
+      nombreNotesPayantes,
       ventesEncaissees,
       totalActivite,
       totalEnCaisse,
@@ -342,7 +346,7 @@ export default function BilanTotalPage() {
       totalCANet,
       totalHorsTaxes,
     };
-  }, [especeMontant, carteMontant, nombreNotesPayantes, remises, offerts]);
+  }, [especeQte, carteQte, especeMontant, carteMontant, remises, offerts]);
 
   const dateCaisse = new Date(`${dateISO || todayISO()}T12:00:00`);
   const dateStr = dateCaisse.toLocaleDateString("fr-FR", {
@@ -351,7 +355,8 @@ export default function BilanTotalPage() {
     year: "numeric",
   });
   const now = new Date();
-  const printedLong = `${now.toLocaleDateString("fr-FR", {
+  // jour = date de la caisse choisie ; heure = heure réelle d'impression
+  const printedLong = `${dateCaisse.toLocaleDateString("fr-FR", {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -373,7 +378,7 @@ export default function BilanTotalPage() {
       <html>
         <head>
           <meta charset="utf-8" />
-          <title>Bilan total — LA GAZELLE DE BABYLONE</title>
+          <title>Bilan total — ${nomImprime}</title>
           <style>
             @page { size: 80mm auto; margin: 0; }
             html, body { margin: 0; padding: 0; background: #fff; width: 80mm; }
@@ -411,7 +416,6 @@ export default function BilanTotalPage() {
     {
       groupe: "Notes",
       items: [
-        { label: "Nombre de notes payantes", value: nombreNotesPayantes, set: setNombreNotesPayantes, entier: true },
         { label: "Notes soldées", value: notesSoldees, set: setNotesSoldees, entier: true },
         { label: "Notes ouvertes", value: notesOuvertes, set: setNotesOuvertes, entier: true },
       ],
@@ -448,6 +452,16 @@ export default function BilanTotalPage() {
         </div>
 
         <div className="rounded border border-gray-200 bg-white p-4">
+          <label className="mb-3 flex items-center gap-3 text-sm">
+            <span className="w-48 font-medium text-gray-700">Nom de l&apos;établissement</span>
+            <input
+              type="text"
+              value={nomEtab}
+              onChange={(e) => setNomEtab(e.target.value)}
+              placeholder="LA GAZELLE DE BABYLONE"
+              className="w-72 rounded border border-gray-300 px-2 py-1"
+            />
+          </label>
           <label className="mb-4 flex items-center gap-3 text-sm">
             <span className="w-48 font-medium text-gray-700">Date de la caisse</span>
             <input
@@ -483,6 +497,7 @@ export default function BilanTotalPage() {
           {/* Récapitulatif des calculs */}
           <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-1 rounded bg-gray-50 p-3 text-xs text-gray-600 md:grid-cols-4">
             <span>Ventes encaissées : <b>{fmt(c.ventesEncaissees)}</b></span>
+            <span>Notes payantes : <b>{fmtInt(c.nombreNotesPayantes)}</b></span>
             <span>Moyenne notes : <b>{fmt(c.moyenneNotes)}</b></span>
             <span>Total C.A. brut : <b>{fmt(c.totalCABrut)}</b></span>
             <span>Total hors taxes : <b>{fmt(c.totalHorsTaxes)}</b></span>
@@ -512,7 +527,7 @@ export default function BilanTotalPage() {
             {/* ── En-tête ──────────────────────────────────────────────── */}
             <div style={{ textAlign: "center" }}>
               <div style={{ fontSize: mm(3.2), lineHeight: mm(3.5), fontWeight: "bold" }}>
-                LA GAZELLE DE BABYLONE
+                {nomImprime}
               </div>
               <div style={{ fontSize: mm(3.2), lineHeight: mm(3.5) }}>
                 Calculer la caisse du {dateStr}
@@ -564,7 +579,7 @@ export default function BilanTotalPage() {
 
             {/* ── Statistiques ─────────────────────────────────────────── */}
             <SectionTitle text="Statistiques" marginTop={2.05} marginBottom={3.62} />
-            <Line label="Nombre de notes payantes" value={fmtInt(num(nombreNotesPayantes))} />
+            <Line label="Nombre de notes payantes" value={fmtInt(c.nombreNotesPayantes)} />
             <Line label="Moyenne notes" value={fmt(c.moyenneNotes)} />
             <Blank />
             <Line label="Notes soldées" value={fmtInt(num(notesSoldees))} />

@@ -1,10 +1,15 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { supabase, type Article, type Famille } from "@/lib/supabase";
+import { type Article, type Famille } from "@/lib/supabase";
+// Client connecté : envoie la session de l'utilisateur (requis par les règles RLS
+// qui n'autorisent les modifications qu'aux admins)
+import { createClient } from "@/lib/supabase/client";
 import { Loader2, Trash2, Edit2, Plus, X, Check, CheckCircle, AlertCircle } from "lucide-react";
+import { DIVISIONS, DIVISION_LABELS, divisionRank, type Division } from "@/lib/divisions";
 
 export default function AdminMenuPage() {
+  const [supabase] = useState(() => createClient());
   const [familles, setFamilles] = useState<Famille[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
@@ -12,7 +17,7 @@ export default function AdminMenuPage() {
   // States for forms
   const [editingFamille, setEditingFamille] = useState<Famille | null>(null);
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
-  const [newFamille, setNewFamille] = useState<{ nom: string; ordre_affichage: number } | null>(null);
+  const [newFamille, setNewFamille] = useState<{ nom: string; division: string | null } | null>(null);
   const [newArticle, setNewArticle] = useState<{ nom: string; prix_unitaire: number; famille_id: number; est_actif: boolean } | null>(null);
 
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -25,7 +30,7 @@ export default function AdminMenuPage() {
   const loadData = async () => {
     setLoading(true);
     const [{ data: fData, error: fErr }, { data: aData, error: aErr }] = await Promise.all([
-      supabase.from("familles").select("*").order("ordre_affichage").order("nom"),
+      supabase.from("familles").select("*").order("nom"),
       supabase.from("articles").select("*").order("nom"),
     ]);
 
@@ -43,17 +48,42 @@ export default function AdminMenuPage() {
   }, []);
 
   // --- CRUD FAMILLES ---
+  /** Message clair selon l'erreur Supabase renvoyée */
+  const familleErrorMessage = (msg: string) => {
+    if (/schema cache/i.test(msg))
+      return "Supabase n'a pas encore pris en compte la colonne « division » : relancez supabase/add-divisions.sql (il recharge le cache), puis réessayez.";
+    if (/column .*division|division.*does not exist/i.test(msg))
+      return "Colonne « division » absente : exécutez supabase/add-divisions.sql dans Supabase.";
+    if (/familles_division_check/i.test(msg)) return "Division invalide.";
+    return msg;
+  };
+
   const handleAddFamille = async () => {
-    if (!newFamille?.nom) return;
-    const { error } = await supabase.from("familles").insert({ nom: newFamille.nom, ordre_affichage: newFamille.ordre_affichage });
-    if (error) showToast("error", error.message);
+    if (!newFamille?.nom.trim()) return;
+    const { data, error } = await supabase
+      .from("familles")
+      .insert({ nom: newFamille.nom.trim(), ordre_affichage: 0, division: newFamille.division })
+      .select();
+    if (error) showToast("error", familleErrorMessage(error.message));
+    else if (!data || data.length === 0)
+      showToast("error", "Ajout refusé par Supabase (droits RLS sur la table familles).");
     else { showToast("success", "Famille ajoutée"); setNewFamille(null); loadData(); }
   };
 
   const handleUpdateFamille = async () => {
-    if (!editingFamille?.nom) return;
-    const { error } = await supabase.from("familles").update({ nom: editingFamille.nom, ordre_affichage: editingFamille.ordre_affichage }).eq("id", editingFamille.id);
-    if (error) showToast("error", error.message);
+    if (!editingFamille?.nom.trim()) return;
+    const division = editingFamille.division || null;
+    const { data, error } = await supabase
+      .from("familles")
+      .update({ nom: editingFamille.nom.trim(), division })
+      .eq("id", editingFamille.id)
+      .select();
+    if (error) showToast("error", familleErrorMessage(error.message));
+    else if (!data || data.length === 0)
+      // aucune ligne modifiée : Supabase a bloqué la modification sans erreur
+      showToast("error", "Modification refusée par Supabase (droits RLS sur la table familles) : rien n'a été enregistré.");
+    else if ((data[0].division ?? null) !== division)
+      showToast("error", "La division n'a pas été enregistrée : vérifiez que supabase/add-divisions.sql a bien été exécuté.");
     else { showToast("success", "Famille modifiée"); setEditingFamille(null); loadData(); }
   };
 
@@ -98,7 +128,7 @@ export default function AdminMenuPage() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900 uppercase tracking-wider">Gestion des Familles</h1>
           {!newFamille && (
-            <button onClick={() => setNewFamille({ nom: "", ordre_affichage: 0 })} className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white text-sm font-semibold rounded hover:bg-gray-800 transition-colors shadow-sm">
+            <button onClick={() => setNewFamille({ nom: "", division: null })} className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white text-sm font-semibold rounded hover:bg-gray-800 transition-colors shadow-sm">
               <Plus size={16} /> Ajouter une famille
             </button>
           )}
@@ -108,7 +138,7 @@ export default function AdminMenuPage() {
             <thead className="bg-gray-50 border-b border-gray-200 uppercase text-xs font-semibold text-gray-500">
               <tr>
                 <th className="px-6 py-4">Nom de la famille</th>
-                <th className="px-6 py-4">Ordre d'affichage</th>
+                <th className="px-6 py-4">Division</th>
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -126,12 +156,14 @@ export default function AdminMenuPage() {
                     />
                   </td>
                   <td className="px-6 py-4">
-                    <input
-                      type="number"
-                      value={newFamille.ordre_affichage}
-                      onChange={(e) => setNewFamille({ ...newFamille, ordre_affichage: parseInt(e.target.value) || 0 })}
-                      className="w-20 border border-gray-300 rounded px-2 py-1 outline-none focus:border-gray-900 text-gray-900 bg-white"
-                    />
+                    <select
+                      value={newFamille.division ?? ""}
+                      onChange={(e) => setNewFamille({ ...newFamille, division: e.target.value || null })}
+                      className="border border-gray-300 rounded px-2 py-1 outline-none focus:border-gray-900 text-gray-900 bg-white"
+                    >
+                      <option value="">— Aucune —</option>
+                      {DIVISIONS.map((d) => <option key={d} value={d}>{DIVISION_LABELS[d]}</option>)}
+                    </select>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
@@ -141,7 +173,7 @@ export default function AdminMenuPage() {
                   </td>
                 </tr>
               )}
-              {familles.map((famille) => (
+              {[...familles].sort((x, y) => divisionRank(x.division) - divisionRank(y.division) || x.nom.localeCompare(y.nom)).map((famille) => (
                 <tr key={famille.id} className="hover:bg-gray-50/50">
                   <td className="px-6 py-4">
                     {editingFamille?.id === famille.id ? (
@@ -157,14 +189,20 @@ export default function AdminMenuPage() {
                   </td>
                   <td className="px-6 py-4">
                     {editingFamille?.id === famille.id ? (
-                      <input
-                        type="number"
-                        value={editingFamille.ordre_affichage}
-                        onChange={(e) => setEditingFamille({ ...editingFamille, ordre_affichage: parseInt(e.target.value) || 0 })}
-                        className="w-20 border border-gray-300 rounded px-2 py-1 outline-none focus:border-gray-900 text-gray-900"
-                      />
+                      <select
+                        value={editingFamille.division ?? ""}
+                        onChange={(e) => setEditingFamille({ ...editingFamille, division: e.target.value || null })}
+                        className="border border-gray-300 rounded px-2 py-1 outline-none focus:border-gray-900 text-gray-900"
+                      >
+                        <option value="">— Aucune —</option>
+                        {DIVISIONS.map((d) => <option key={d} value={d}>{DIVISION_LABELS[d]}</option>)}
+                      </select>
+                    ) : famille.division ? (
+                      <span className="text-xs font-semibold uppercase tracking-wide bg-gray-900 text-white px-2 py-0.5 rounded">
+                        {DIVISION_LABELS[famille.division as Division] ?? famille.division}
+                      </span>
                     ) : (
-                      <span className="text-gray-600">{famille.ordre_affichage}</span>
+                      <span className="text-xs text-gray-400">—</span>
                     )}
                   </td>
                   <td className="px-6 py-4 text-right">

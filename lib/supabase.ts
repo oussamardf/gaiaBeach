@@ -19,6 +19,8 @@ export interface Famille {
   id: number;
   nom: string;
   ordre_affichage: number;
+  /** FOOD | DRINKS | SALON | TRANSAT (null = sans division) */
+  division?: string | null;
 }
 
 export interface Article {
