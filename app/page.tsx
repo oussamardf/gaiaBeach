@@ -41,6 +41,8 @@ export default function POSPage() {
     message: string;
   } | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  // Utilisateur connecté (requis par les règles RLS de la table commandes)
+  const [vendeur, setVendeur] = useState<{ id: string; agence: string | null } | null>(null);
 
   // ── Date de la caisse (saisie manuelle, aujourd'hui par défaut) ──────────
   const todayISO = () => {
@@ -115,10 +117,11 @@ export default function POSPage() {
       if (authData?.user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("role")
+          .select("role, agence")
           .eq("id", authData.user.id)
           .single();
         setIsAdmin(profile?.role === "admin");
+        setVendeur({ id: authData.user.id, agence: profile?.agence ?? null });
       }
 
       const [
@@ -177,6 +180,9 @@ export default function POSPage() {
     const totalHT = totalTTC - totalTVA;
 
     try {
+      if (!vendeur) {
+        throw new Error("Session expirée : reconnectez-vous pour encaisser.");
+      }
       const { data: commande, error: commandeError } = await supabase
         .from("commandes")
         .insert({
@@ -184,12 +190,20 @@ export default function POSPage() {
           total_ttc: parseFloat(totalTTC.toFixed(2)),
           mode_paiement: "ESPECE",
           statut: "payee",
+          // la règle RLS exige l'agence du vendeur connecté
+          vendeur_id: vendeur.id,
+          ...(vendeur.agence ? { agence: vendeur.agence } : {}),
         })
         .select()
         .single();
 
       if (commandeError || !commande) {
-        throw new Error(commandeError?.message ?? "Erreur création commande");
+        const msg = commandeError?.message ?? "Erreur création commande";
+        throw new Error(
+          /row-level security/i.test(msg)
+            ? `Commande refusée par Supabase (agence « ${vendeur.agence ?? "aucune"} »). Exécutez supabase/fix-rls-commandes.sql.`
+            : msg
+        );
       }
 
       const lignes = items.map((item) => ({
@@ -218,7 +232,7 @@ export default function POSPage() {
       setCheckoutLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, getTotal, clearCart, showToast]);
+  }, [items, getTotal, clearCart, showToast, vendeur]);
 
   // ── Date/time for ticket header ───────────────────────────────────────────
   const now = new Date();
