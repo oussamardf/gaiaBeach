@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 
-/** Nom imprimé en tête des tickets (ticket de caisse et Bilan total). */
-export const NOM_PAR_DEFAUT = "LA GAZELLE DE BABYLONE";
-const CLE = "pos-nom-etablissement";
+/** Nom de l'établissement imprimé sous « BILAN TOTAL » (ex. DJADJA AFRO CLUB). */
+export const NOM_PAR_DEFAUT = "DJADJA AFRO CLUB";
+const CLE = "pos-nom-club";
 
 /**
  * Nom de l'établissement, modifiable et mémorisé dans ce navigateur
- * (partagé entre la caisse et la page Bilan).
+ * (page Bilan total).
  */
 export function useNomEtablissement() {
   const [nom, setNomState] = useState(NOM_PAR_DEFAUT);

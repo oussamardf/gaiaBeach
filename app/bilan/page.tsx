@@ -18,8 +18,6 @@ import { useNomEtablissement } from "@/lib/useNomEtablissement";
 //  RÉGLAGES
 // ════════════════════════════════════════════════════════════════════════════
 
-/** Nom de l'établissement imprimé sous « BILAN TOTAL » */
-const ETABLISSEMENT = "DJADJA AFRO CLUB";
 
 /**
  * Police du ticket. L'original Pointex est en Arial (police proportionnelle,
@@ -458,7 +456,7 @@ export default function BilanTotalPage() {
               type="text"
               value={nomEtab}
               onChange={(e) => setNomEtab(e.target.value)}
-              placeholder="LA GAZELLE DE BABYLONE"
+              placeholder="DJADJA AFRO CLUB"
               className="w-72 rounded border border-gray-300 px-2 py-1"
             />
           </label>
@@ -527,7 +525,7 @@ export default function BilanTotalPage() {
             {/* ── En-tête ──────────────────────────────────────────────── */}
             <div style={{ textAlign: "center" }}>
               <div style={{ fontSize: mm(3.2), lineHeight: mm(3.5), fontWeight: "bold" }}>
-                {nomImprime}
+                LA GAZELLE DE BABYLONE
               </div>
               <div style={{ fontSize: mm(3.2), lineHeight: mm(3.5) }}>
                 Calculer la caisse du {dateStr}
@@ -544,7 +542,7 @@ export default function BilanTotalPage() {
                 textUnderlineOffset: "0.15mm", // soulignement collé aux lettres (mesuré)
               }}
             >
-              {ETABLISSEMENT}
+              {nomImprime}
             </div>
             {/* fin pointillé sous le nom de l'établissement */}
             <div

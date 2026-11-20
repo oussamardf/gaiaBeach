@@ -16,7 +16,6 @@ import { type Famille, type Article } from "@/lib/supabase";
 import { createClient as createBrowserClient } from "@/lib/supabase/client";
 import { useCartStore } from "@/store/useCartStore";
 import TicketPointex from "@/components/TicketPointex";
-import { useNomEtablissement } from "@/lib/useNomEtablissement";
 import { DIVISIONS, DIVISION_LABELS, divisionRank, type Division } from "@/lib/divisions";
 
 // ── RLS fix SQL shown to user when tables are empty ──────────────────────────
@@ -49,7 +48,6 @@ export default function POSPage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   };
   const [caisseDateISO, setCaisseDateISO] = useState<string>(todayISO);
-  const { nom: nomEtab, setNom: setNomEtab, nomImprime } = useNomEtablissement();
   // midi local : évite tout décalage de jour lié au fuseau horaire
   const caisseDate = caisseDateISO ? new Date(`${caisseDateISO}T12:00:00`) : new Date();
 
@@ -74,7 +72,7 @@ export default function POSPage() {
       <html>
         <head>
           <meta charset="utf-8" />
-          <title>Ticket de Caisse — ${nomImprime}</title>
+          <title>Ticket de Caisse — LA GAZELLE DE BABYLONE</title>
           <style>
             @page { size: 80mm auto; margin: 0; }
             html, body { margin: 0; padding: 0; background: #fff; width: 80mm; }
@@ -413,7 +411,6 @@ export default function POSPage() {
               }))}
               date={now}
               caisseDate={caisseDate}
-              nom={nomImprime}
               renderItemControls={(item) => (
                 <div className="flex items-center gap-1 py-0.5 pl-[5.5mm] font-sans">
                   <button
@@ -445,16 +442,6 @@ export default function POSPage() {
 
         {/* ── Boutons UI (hors impression) ──────────────────────────────── */}
         <div className="no-print flex flex-col gap-2 border-t border-gray-200 bg-white p-3 font-sans">
-          <label className="flex items-center justify-between gap-2 text-xs text-gray-600">
-            <span className="font-medium">Nom</span>
-            <input
-              type="text"
-              value={nomEtab}
-              onChange={(e) => setNomEtab(e.target.value)}
-              placeholder="LA GAZELLE DE BABYLONE"
-              className="w-56 rounded border border-gray-300 px-2 py-1 text-xs text-gray-800 focus:border-gray-500 focus:outline-none"
-            />
-          </label>
           <label className="flex items-center justify-between gap-2 text-xs text-gray-600">
             <span className="font-medium">Date de la caisse</span>
             <span className="flex items-center gap-1">
